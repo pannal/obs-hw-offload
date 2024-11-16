@@ -15,6 +15,8 @@ RUN curl https://sh.rustup.rs -sSf | sh -s -- -y && $HOME/.cargo/bin/cargo insta
 
 # gstreamer ndi plugin
 # fixme: might need optimizations (no-clone-submodules?)
+#RUN git clone https://gitlab.freedesktop.org/gstreamer/gst-plugins-rs.git && cd gst-plugins-rs/ && $HOME/.cargo/bin/cargo cbuild -p gst-plugin-ndi --prefix=/usr  \
+#    && $HOME/.cargo/bin/cargo cinstall -p gst-plugin-ndi --prefix=/usr && $HOME/.cargo/bin/cargo clean && cd .. && rm -rf gst-plugins-rs/
 RUN wget https://gitlab.freedesktop.org/gstreamer/gst-plugins-rs/-/archive/main/gst-plugins-rs-main.zip && unzip gst-plugins-rs-main.zip  && cd gst-plugins-rs-main  \
     && $HOME/.cargo/bin/cargo cbuild -p gst-plugin-ndi --prefix=/usr && $HOME/.cargo/bin/cargo cinstall -p gst-plugin-ndi --prefix=/usr && $HOME/.cargo/bin/cargo clean && cd .. && rm -rf gst-plugins-rs-main/
 
