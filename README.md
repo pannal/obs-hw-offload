@@ -1,5 +1,5 @@
 # obs-hw-offload
-### GStreamer-based NDI-to-RTMP with VAAPI HW transcoding
+### GStreamer-based NDI®-to-RTMP with VAAPI HW transcoding
 
 ## Introduction
 Ever wondered why you have an Intel CPU with QuickSync capabilities in your network, or a server with an Arc GPU, but you're still using your gaming
@@ -33,3 +33,10 @@ NDI input, transcoding it using VAAPI and sending it to your RTMP target (custom
 
 ### CBR h264 original resolution, default quality, using an Intel Arc A380
 ```docker run --network=host --device /dev/dri/renderD128:/dev/dri/renderD128 obs-hw-offload gst-launch-1.0 ndisrc ndi-name="NDI_SOURCE_NAME" timeout=100000 connect-timeout=100000 ! ndisrcdemux name=demux demux.video ! videoconvert ! vaapih264enc rate-control=cbr bitrate=24000 keyframe-period=30 ! h264parse ! queue ! mux. demux.audio ! audioconvert ! audioresample ! avenc_aac ! queue ! mux. flvmux name=mux streamable=true ! rtmpsink location="rtmp://your_server/streamkey live=1"```
+
+# License
+
+[NDI® is a registered trademark of Vizrt NDI AB](https://ndi.video/)
+
+# Links
+[ndi.video](https://ndi.video/)
