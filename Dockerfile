@@ -10,20 +10,21 @@ COPY --from=bindings /usr/local/cargo/bin /usr/local/cargo/bin
 ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL="sparse"
 
 RUN apt-get update && apt-get -y install \
-    git \
     build-essential \
     libgstreamer1.0-dev \
     libgstreamer-plugins-base1.0-dev
 
 RUN cd /opt && \
-    git clone --depth 1 https://gitlab.freedesktop.org/gstreamer/gst-plugins-rs.git && \
-    cd gst-plugins-rs && \
+    # tested commit: https://gitlab.freedesktop.org/gstreamer/gst-plugins-rs/-/archive/d5425c52251f3fc0c21a6d994f9e1e6b46670daf/gst-plugins-rs-d5425c52251f3fc0c21a6d994f9e1e6b46670daf.tar.bz2
+    curl -O https://gitlab.freedesktop.org/gstreamer/gst-plugins-rs/-/archive/main/gst-plugins-rs-main.tar.bz2  && \
+    tar -xjvf gst-plugins-rs-main.tar.bz2 && \
+    cd gst-plugins-rs-main && \
     cargo cbuild -p gst-plugin-ndi --release
 
 
 # run
 FROM debian:12 AS runner
-COPY --from=builder /opt/gst-plugins-rs/target /opt/gst-plugins-rs/target
+COPY --from=builder /opt/gst-plugins-rs-main/target /opt/gst-plugins-rs/target
 
 WORKDIR /app
 COPY . /app
