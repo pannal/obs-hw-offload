@@ -23,7 +23,7 @@ RUN cd /opt && \
 
 
 # run
-FROM debian:12 AS runner
+FROM ubuntu:24.04 AS runner
 COPY --from=builder /opt/gst-plugins-rs-main/target /opt/gst-plugins-rs/target
 
 WORKDIR /app
@@ -33,7 +33,6 @@ ARG DEBIAN_FRONTEND="noninteractive"
 SHELL ["/bin/bash", "-c"]
 ENV NVIDIA_DRIVER_CAPABILITIES="compute,video,utility"
 
-# fixme: probably not everything necessary
 RUN apt-get update && apt-get -y install \
     pkg-config \
     sudo \
