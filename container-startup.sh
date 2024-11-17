@@ -1,6 +1,8 @@
 #!/bin/bash
 
-/etc/init.d/dbus start
+mkdir -p /var/run/dbus
+dbus-daemon --system
+
 avahi-daemon -D
 
 echo "Executing command: '$@'"

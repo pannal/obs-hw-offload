@@ -1,61 +1,40 @@
-# pull the c-bindings
-FROM rust AS bindings
-RUN cargo install cargo-c
-
-
-# build the gstreamer ndi plugin
-FROM rust AS builder
-COPY --from=bindings /usr/local/cargo/bin /usr/local/cargo/bin
-
-ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL="sparse"
-
-RUN apt-get update && apt-get -y install \
-    git \
-    build-essential \
-    libgstreamer1.0-dev \
-    libgstreamer-plugins-base1.0-dev
-
-RUN cd /opt && \
-    git clone --depth 1 https://gitlab.freedesktop.org/gstreamer/gst-plugins-rs.git && \
-    cd gst-plugins-rs && \
-    cargo cbuild -p gst-plugin-ndi --release
-
-
-# run
-FROM debian:12 AS runner
-COPY --from=builder /opt/gst-plugins-rs/target /opt/gst-plugins-rs/target
+FROM alpine:3.20
 
 WORKDIR /app
 COPY . /app
 
-ARG DEBIAN_FRONTEND="noninteractive"
-SHELL ["/bin/bash", "-c"]
 ENV NVIDIA_DRIVER_CAPABILITIES="compute,video,utility"
 
-# fixme: probably not everything necessary
-RUN apt-get update && apt-get -y install \
-    pkg-config \
+RUN apk add --no-cache \
+    gstreamer \
+    gstreamer-tools \
+    gst-plugins-base \
+    gst-plugins-good \
+    gst-plugins-bad \
+    gst-plugins-ugly \
+    gst-vaapi \
+    gst-libav \
+    intel-media-driver \
+    jack \
+    gcompat \
     sudo \
-    curl \
-    avahi-daemon \
-    libgstreamer1.0-dev \
-    libgstreamer-plugins-base1.0-dev \
-    gstreamer1.0-plugins-base \
-    gstreamer1.0-plugins-good \
-    gstreamer1.0-plugins-bad \
-    gstreamer1.0-plugins-ugly \
-    gstreamer1.0-vaapi \
-    gstreamer1.0-plugins-base-apps \
-    gstreamer1.0-libav
+    dbus \
+    avahi \
+    bash \
+    curl
 
-RUN sudo install -m 755 /opt/gst-plugins-rs/target/*/release/*.so $(pkg-config --variable=pluginsdir gstreamer-1.0)/
+RUN apk add --no-cache -X http://dl-cdn.alpinelinux.org/alpine/edge/community gst-plugins-rs-ndi
 
 # LibNDI
-# alternatively, get the release .deb from https://github.com/DistroAV/DistroAV/releases
-RUN curl -O --output-dir /tmp https://raw.githubusercontent.com/DistroAV/DistroAV/6.0.0/CI/libndi-get.sh && \
-    bash /tmp/libndi-get.sh install
+SHELL ["/bin/bash", "-c"]
+RUN curl -O --output-dir /tmp https://raw.githubusercontent.com/DistroAV/DistroAV/6.0.0/CI/libndi-get.sh
+RUN chmod +x /tmp/libndi-get.sh
 
-RUN rm -rf /var/lib/apt/lists/*
+# dumb workaround, ldconfig fails without a path in apline
+RUN sed -i 's/ldconfig/ldconfig \/usr\/local\/lib/g' /tmp/libndi-get.sh
+
+RUN /tmp/libndi-get.sh install
+RUN rm /tmp/libndi-get.sh
+
 RUN chmod +x /app/container-startup.sh
-
 ENTRYPOINT ["/app/container-startup.sh"]
