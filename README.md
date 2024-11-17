@@ -29,6 +29,7 @@ This still uses `vaapih264enc` which is "deprecated" since GStreamer 1.22, but i
 # Examples
 ### Note:
 * Replace `NDI_SOURCE_NAME` with the NDI source name from [Discovering NDI sources](#discovering-ndi-sources)
+* Alternatively, use for example `url-address="192.168.0.10:5961"` instead of `ndi-name=""` to skip auto discovery
 * Replace `rtmp://your_server/streamkey` with your rtmp target
 
 #### VBR h264 resize to 1080p, high quality, 12mbit
