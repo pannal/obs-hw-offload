@@ -14,17 +14,20 @@ RUN apt-get update && apt-get -y install \
     libgstreamer1.0-dev \
     libgstreamer-plugins-base1.0-dev
 
+# GST_PLUGINS_COMMIT=main to use the latest commit
+ENV GST_PLUGINS_COMMIT=d5425c52251f3fc0c21a6d994f9e1e6b46670daf
+
 RUN cd /opt && \
-    # tested commit: https://gitlab.freedesktop.org/gstreamer/gst-plugins-rs/-/archive/d5425c52251f3fc0c21a6d994f9e1e6b46670daf/gst-plugins-rs-d5425c52251f3fc0c21a6d994f9e1e6b46670daf.tar.bz2
-    curl -O https://gitlab.freedesktop.org/gstreamer/gst-plugins-rs/-/archive/main/gst-plugins-rs-main.tar.bz2  && \
-    tar -xjvf gst-plugins-rs-main.tar.bz2 && \
-    cd gst-plugins-rs-main && \
+    curl -O https://gitlab.freedesktop.org/gstreamer/gst-plugins-rs/-/archive/$GST_PLUGINS_COMMIT/gst-plugins-rs-$GST_PLUGINS_COMMIT.tar.bz2 && \
+    mkdir gst-plugins-rs-dev && \
+    tar -xjvf gst-plugins-rs-$GST_PLUGINS_COMMIT.tar.bz2 --strip-components=1 -C gst-plugins-rs-dev/ gst-plugins-rs-$GST_PLUGINS_COMMIT && \
+    cd gst-plugins-rs-dev && \
     cargo cbuild -p gst-plugin-ndi --release
 
 
 # run
 FROM ubuntu:24.04 AS runner
-COPY --from=builder /opt/gst-plugins-rs-main/target /opt/gst-plugins-rs/target
+COPY --from=builder /opt/gst-plugins-rs-dev/target /opt/gst-plugins-rs/target
 
 WORKDIR /app
 COPY . /app
@@ -34,26 +37,26 @@ SHELL ["/bin/bash", "-c"]
 ENV NVIDIA_DRIVER_CAPABILITIES="compute,video,utility"
 
 RUN apt-get update && apt-get -y install \
-    pkg-config \
-    sudo \
-    curl \
-    avahi-daemon \
-    libgstreamer1.0-dev \
-    libgstreamer-plugins-base1.0-dev \
-    gstreamer1.0-plugins-base \
-    gstreamer1.0-plugins-good \
-    gstreamer1.0-plugins-bad \
-    gstreamer1.0-plugins-ugly \
-    gstreamer1.0-vaapi \
-    gstreamer1.0-plugins-base-apps \
-    gstreamer1.0-libav
+   pkg-config \
+   sudo \
+   curl \
+   avahi-daemon \
+   libgstreamer1.0-dev \
+   libgstreamer-plugins-base1.0-dev \
+   gstreamer1.0-plugins-base \
+   gstreamer1.0-plugins-good \
+   gstreamer1.0-plugins-bad \
+   gstreamer1.0-plugins-ugly \
+   gstreamer1.0-vaapi \
+   gstreamer1.0-plugins-base-apps \
+   gstreamer1.0-libav
 
 RUN sudo install -m 755 /opt/gst-plugins-rs/target/*/release/*.so $(pkg-config --variable=pluginsdir gstreamer-1.0)/
 
 # LibNDI
 # alternatively, get the release .deb from https://github.com/DistroAV/DistroAV/releases
 RUN curl -O --output-dir /tmp https://raw.githubusercontent.com/DistroAV/DistroAV/6.0.0/CI/libndi-get.sh && \
-    bash /tmp/libndi-get.sh install
+   bash /tmp/libndi-get.sh install
 
 RUN rm -rf /var/lib/apt/lists/*
 RUN chmod +x /app/container-startup.sh
