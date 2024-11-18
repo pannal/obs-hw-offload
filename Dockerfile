@@ -48,8 +48,8 @@ RUN apt-get update && apt-get -y install \
 
 # LibNDI
 # alternatively, get the release .deb from https://github.com/DistroAV/DistroAV/releases
-RUN curl -O --output-dir /tmp https://raw.githubusercontent.com/DistroAV/DistroAV/6.0.0/CI/libndi-get.sh
-RUN bash /tmp/libndi-get.sh install
+RUN curl -O --output-dir /tmp https://raw.githubusercontent.com/DistroAV/DistroAV/6.0.0/CI/libndi-get.sh && \
+   bash /tmp/libndi-get.sh install
 
 RUN rm -rf /var/lib/apt/lists/*
 RUN chmod +x /app/container-startup.sh
