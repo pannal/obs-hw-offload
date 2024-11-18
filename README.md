@@ -14,29 +14,47 @@ This still uses `vaapih264enc` which is "deprecated" since GStreamer 1.22, but i
 ## Requirements
 * VAAPI-compatible hardware/driver on host OS
   * `clinfo |grep "Device Name"` should return something
-* host networking (for the moment; due to avahi-daemon)
 * Something sending NDI streams, such as OBS DistroAV
+* Optional: host networking (only when auto discovery is used)
 
+
+## Installation
+Either:
+* Build it yourself or
+* [Get it from DockerHub](https://hub.docker.com/repository/docker/pannal/obs-hw-offload/general)
 
 ## Building
 `docker build . -t obs-hw-offload`
 
 
-## Discovering NDI sources
+## Basic setup
+
+### Direct connection (default):
+* Use `SOURCE` as `url-address="ip:5961"` while replacing `ip` with the IP of your OBS source host
+
+
+### With host-networking, autodiscovery:
+
+###### Discovering NDI sources
 `docker run --network=host obs-hw-offload gst-device-monitor-1.0 -f Source/Network:application/x-ndi`
+
+* Use `SOURCE` as `ndi-name="SOURCE_NAME"` with the NDI source name from the previous step in the examples below (default source name is: `YOUR_PC_NAME (OBS)` for DistroAV)
+* Run the examples below with `--network=host` and `--env USE_AUTODISCOVERY=true`
 
 
 # Examples
 ### Note:
-* Replace `NDI_SOURCE_NAME` with the NDI source name from [Discovering NDI sources](#discovering-ndi-sources)
-* Alternatively, use for example `url-address="192.168.0.10:5961"` instead of `ndi-name=""` to skip auto discovery
+* Replace `SOURCE` with the result of the [Basic setup step](#basic-setup)
 * Replace `rtmp://your_server/streamkey` with your rtmp target
 
 #### VBR h264 resize to 1080p, high quality, 12mbit
-```docker run --network=host --rm --name=obs-hw-offload --device /dev/dri/renderD128:/dev/dri/renderD128 obs-hw-offload gst-launch-1.0 ndisrc ndi-name="NDI_SOURCE_NAME" timeout=100000 connect-timeout=100000 ! ndisrcdemux name=demux demux.video ! videoconvert ! vaapipostproc width=1920 height=1080 ! vaapih264enc rate-control=cbr bitrate=12000 keyframe-period=30 quality-level=2 cabac=true init-qp=36 ! h264parse ! queue ! mux. demux.audio ! audioconvert ! audioresample ! avenc_aac ! queue ! mux. flvmux name=mux streamable=true ! rtmpsink location="rtmp://your_server/streamkey live=1"```
+```docker run --rm --name=obs-hw-offload --device /dev/dri/renderD128:/dev/dri/renderD128 obs-hw-offload gst-launch-1.0 ndisrc SOURCE timeout=100000 connect-timeout=100000 ! ndisrcdemux name=demux demux.video ! videoconvert ! vaapipostproc width=1920 height=1080 ! vaapih264enc rate-control=cbr bitrate=12000 keyframe-period=30 quality-level=2 cabac=true init-qp=36 ! h264parse ! queue ! mux. demux.audio ! audioconvert ! audioresample ! avenc_aac ! queue ! mux. flvmux name=mux streamable=true ! rtmpsink location="rtmp://your_server/streamkey live=1"```
 
 #### CBR h264 original resolution, default quality, 24mbit
-```docker run --network=host --rm --name=obs-hw-offload --device /dev/dri/renderD128:/dev/dri/renderD128 obs-hw-offload gst-launch-1.0 ndisrc ndi-name="NDI_SOURCE_NAME" timeout=100000 connect-timeout=100000 ! ndisrcdemux name=demux demux.video ! videoconvert ! vaapih264enc rate-control=cbr bitrate=24000 keyframe-period=30 ! h264parse ! queue ! mux. demux.audio ! audioconvert ! audioresample ! avenc_aac ! queue ! mux. flvmux name=mux streamable=true ! rtmpsink location="rtmp://your_server/streamkey live=1"```
+```docker run --rm --name=obs-hw-offload --device /dev/dri/renderD128:/dev/dri/renderD128 obs-hw-offload gst-launch-1.0 ndisrc SOURCE timeout=100000 connect-timeout=100000 ! ndisrcdemux name=demux demux.video ! videoconvert ! vaapih264enc rate-control=cbr bitrate=24000 keyframe-period=30 ! h264parse ! queue ! mux. demux.audio ! audioconvert ! audioresample ! avenc_aac ! queue ! mux. flvmux name=mux streamable=true ! rtmpsink location="rtmp://your_server/streamkey live=1"```
+
+#### The above with host networking and auto discovery
+```docker run --network-mode host --env USE_AUTODISCOVERY=true --rm --name=obs-hw-offload --device /dev/dri/renderD128:/dev/dri/renderD128 obs-hw-offload gst-launch-1.0 ndisrc SOURCE timeout=100000 connect-timeout=100000 ! ndisrcdemux name=demux demux.video ! videoconvert ! vaapih264enc rate-control=cbr bitrate=24000 keyframe-period=30 ! h264parse ! queue ! mux. demux.audio ! audioconvert ! audioresample ! avenc_aac ! queue ! mux. flvmux name=mux streamable=true ! rtmpsink location="rtmp://your_server/streamkey live=1"```
 
 # License
 
