@@ -11,13 +11,12 @@ RUN apt-get update && apt-get -y install \
     libgstreamer1.0-dev \
     libgstreamer-plugins-base1.0-dev
 
-# ENV GST_PLUGINS_COMMIT=main to use the latest commit
-ENV GST_PLUGINS_COMMIT=d5425c52251f3fc0c21a6d994f9e1e6b46670daf
+ARG GST_PLUGINS_COMMIT=d5425c52251f3fc0c21a6d994f9e1e6b46670daf
 
 RUN cd /opt && \
-    curl -O https://gitlab.freedesktop.org/gstreamer/gst-plugins-rs/-/archive/$GST_PLUGINS_COMMIT/gst-plugins-rs-$GST_PLUGINS_COMMIT.tar.bz2 && \
+    curl -O https://gitlab.freedesktop.org/gstreamer/gst-plugins-rs/-/archive/${GST_PLUGINS_COMMIT}/gst-plugins-rs-${GST_PLUGINS_COMMIT}.tar.bz2 && \
     mkdir gst-plugins-rs-dev && \
-    tar -xjvf gst-plugins-rs-$GST_PLUGINS_COMMIT.tar.bz2 --strip-components=1 -C gst-plugins-rs-dev/ gst-plugins-rs-$GST_PLUGINS_COMMIT && \
+    tar -xjvf gst-plugins-rs-${GST_PLUGINS_COMMIT}.tar.bz2 --strip-components=1 -C gst-plugins-rs-dev/ gst-plugins-rs-${GST_PLUGINS_COMMIT} && \
     cd gst-plugins-rs-dev && \
     cargo build -p gst-plugin-ndi --release
 
@@ -33,8 +32,12 @@ ARG DEBIAN_FRONTEND="noninteractive"
 SHELL ["/bin/bash", "-c"]
 ENV NVIDIA_DRIVER_CAPABILITIES="compute,video,utility"
 ENV GST_PLUGIN_PATH="/opt/gst-plugins-rs"
+ENV USE_AUTODISCOVERY=false
 
-RUN apt-get update && apt-get -y install \
+RUN apt-get update && apt-get -y install software-properties-common && \
+    add-apt-repository -y ppa:kisak/kisak-mesa
+
+RUN apt-get -y install \
    sudo \
    curl \
    avahi-daemon \
