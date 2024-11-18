@@ -9,7 +9,7 @@ This solves that. The best example is using OBS with DistroAV to send a mostly l
 NDI input, transcoding it using VAAPI and sending it to your RTMP target (custom RTMP, Twitch etc.).
 
 ### Note
-This still uses `vaapih264enc` which is "deprecated" since GStreamer 1.22, but it's much more stable than `vah264lpenc` (or `vah264enc`, untested) right now. This might change in the future.
+This still uses `vaapih264enc` which is "deprecated" since GStreamer 1.22, but it's much more performant than the low-power/non-shader-based`vah264lpenc` (vah264enc` would be preferred but isn't always available) right now. This might change in the future.
 
 ## Requirements
 * VAAPI-compatible hardware/driver on host OS
