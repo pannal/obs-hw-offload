@@ -136,6 +136,14 @@ Prepend `gst-launch-1.0` with `GST_DEBUG=3 `
 ###### FFMPEG
 Add parameter `-loglevel debug` after `ffmpeg` command
 
+
+# Further documentation
+[GStreamer VAAPI](https://gstreamer.freedesktop.org/documentation/vaapi/index.html?gi-language=c)
+
+[GStreamer VA](https://gstreamer.freedesktop.org/documentation/va/index.html?gi-language=c)
+
+[GStreamer Tutorials](https://gstreamer.freedesktop.org/documentation/tutorials/index.html?gi-language=c)
+
 # License
 
 [NDI® is a registered trademark of Vizrt NDI AB](https://ndi.video/)
