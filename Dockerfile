@@ -35,19 +35,33 @@ ENV GST_PLUGIN_PATH="/opt/gst-plugins-rs"
 ENV USE_AUTODISCOVERY=false
 
 RUN apt-get update && apt-get -y install software-properties-common && \
-    add-apt-repository -y ppa:kisak/kisak-mesa
+    add-apt-repository -y ppa:kobuk-team/intel-graphics
 
 RUN apt-get -y install \
-   sudo \
-   curl \
-   avahi-daemon \
-   gstreamer1.0-plugins-base \
-   gstreamer1.0-plugins-good \
-   gstreamer1.0-plugins-bad \
-   gstreamer1.0-plugins-ugly \
-   gstreamer1.0-vaapi \
-   gstreamer1.0-plugins-base-apps \
-   gstreamer1.0-libav
+    sudo \
+    curl \
+    avahi-daemon \
+    libze-intel-gpu1  \
+    libze1  \
+    intel-ocloc  \
+    intel-opencl-icd  \
+    clinfo \
+    intel-media-va-driver-non-free  \
+    libmfx1  \
+    libmfx-gen1.2  \
+    libvpl2  \
+    libvpl-tools  \
+    libva-glx2  \
+    va-driver-all  \
+    vainfo \
+    gstreamer1.0-plugins-base \
+    gstreamer1.0-plugins-good \
+    gstreamer1.0-plugins-bad \
+    gstreamer1.0-plugins-ugly \
+    gstreamer1.0-vaapi \
+    gstreamer1.0-plugins-base-apps \
+    gstreamer1.0-libav \
+    ffmpeg
 
 # LibNDI
 # alternatively, get the release .deb from https://github.com/DistroAV/DistroAV/releases

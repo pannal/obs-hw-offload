@@ -70,6 +70,34 @@ When we don't receive output from an NDI source for 100s, the container exits. T
 #### The above with host networking and auto discovery
 ```docker run --network-mode host --env USE_AUTODISCOVERY=true --rm --name=obs-hw-offload --device /dev/dri/renderD128:/dev/dri/renderD128 obs-hw-offload gst-launch-1.0 ndisrc SOURCE timeout=100000 connect-timeout=100000 ! ndisrcdemux name=demux demux.video ! videoconvert ! vaapih264enc rate-control=cbr bitrate=24000 keyframe-period=30 ! h264parse ! queue ! mux. demux.audio ! audioconvert ! audioresample ! avenc_aac ! queue ! mux. flvmux name=mux streamable=true ! rtmpsink location="rtmp://your_server/streamkey live=1"```
 
+#### Use FFMPEG for RTMP output (it supports Enhanced RTMP and thus HEVC/AV1)
+```docker run --rm --name=obs-hw-offload --device /dev/dri/renderD128:/dev/dri/renderD128 obs-hw-offload gst-launch-1.0 ndisrc SOURCE timeout=100000 connect-timeout=100000 ! ndisrcdemux name=demux demux.video ! videoconvert ! vaapipostproc width=1920 height=1080 ! vaapih264enc rate-control=cbr bitrate=24000 keyframe-period=30  !  h264parse ! queue ! mux. demux.audio ! audioconvert ! audioresample ! avenc_aac ! queue ! mux. matroskamux name=mux ! filesink location=/tmp/gst_output_pipe | ffmpeg -fflags nobuffer -i /tmp/gst_output_pipe -c:v copy -c:a copy -f flv rtmp://your_server/streamkey```
+
+#### VBR HEVC resize to 1080p, high quality, 12mbit
+```docker run --rm --name=obs-hw-offload --device /dev/dri/renderD128:/dev/dri/renderD128 obs-hw-offload gst-launch-1.0 ndisrc SOURCE timeout=100000 connect-timeout=100000 ! ndisrcdemux name=demux demux.video ! videoconvert ! vaapipostproc width=1920 height=1080 ! vaapih265enc rate-control=vbr bitrate=12000 keyframe-period=30  quality-level=2 !  h265parse ! queue ! mux. demux.audio ! audioconvert ! audioresample ! avenc_aac ! queue ! mux. matroskamux name=mux ! filesink location=/tmp/gst_output_pipe | ffmpeg -fflags nobuffer -i /tmp/gst_output_pipe -c:v copy -c:a copy -f flv rtmp://your_server/streamkey```
+
+
+### Additional snippets for adjusting the pipeline
+#### Specific framerates (for media files), add after `! videoconvert`
+###### 30 fps
+`! videorate ! video/x-raw, framerate=30/1`
+###### 23.976 fps
+`! videorate ! video/x-raw, framerate=24000/1001`
+###### ~29.976 fps
+`! videorate ! video/x-raw, framerate=30000/1001`
+###### =29.976 fps
+`! videorate ! video/x-raw, framerate=29976/1000`
+
+#### Pipeline buffering (should not be necessary in a stable local network)
+Replace `queue` with for example `queue max-size-time=500000000 max-size-buffers=5 max-size-bytes=0` or `queue leaky=downstream`, `queue leaky=upstream`
+
+
+#### Debugging
+###### GStreamer
+Prepend `gst-launch-1.0` with `GST_DEBUG=3 `
+
+###### FFMPEG
+Add parameter `-loglevel debug` after `ffmpeg` command
 
 # License
 

@@ -6,5 +6,7 @@ then
   avahi-daemon -D
 fi
 
+mkfifo /tmp/gst_output_pipe
+
 echo "Executing command: '$@'"
 exec "$@"
