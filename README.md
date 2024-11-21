@@ -1,21 +1,55 @@
 # obs-hw-offload
-### Headless gstreamer-based NDI®-to-RTMP with VAAPI HW transcoding
+### Headless gstreamer-based NDI® OBS offloading with VAAPI HW transcoding
 
 ## Introduction
 Ever wondered why you have an Intel CPU with QuickSync capabilities in your network, or a server with an Arc GPU, but you're still using your gaming
 machine's resources to transcode your video when streaming?
 
-This solves that. The best example is using OBS with DistroAV to send a mostly lossless video/audio stream to the GStreamer
+Are you trying to find a capture card to fit your needs, don't want to compromise on HDMI passthrough, or simply want to use DisplayPort?
+
+You've got an older Laptop with an Intel CPU with an iGPU that's just lying around, not utilized?
+
+This can help. 
+
+The best example would be using OBS with DistroAV to send a virtually lossless video/audio stream to the GStreamer
 NDI input, transcoding it using VAAPI and sending it to your RTMP target (custom RTMP, Twitch etc.).
 
+E.g.: Distributed, headless OBS encoding/transcoding/streaming.
+
 ### Note
-This still uses `vaapih264enc` which is "deprecated" since GStreamer 1.22, but it's much more performant than the low-power/non-shader-based`vah264lpenc` (vah264enc` would be preferred but isn't always available) right now. This might change in the future.
+For now this project is just a container built with the right environment to do what it claims. It's in proof-of-concept stage. At a certain point this is likely to become software, at least to simplify the command line.
+
+This still uses `vaapih264/5enc` which is "deprecated" since GStreamer 1.22, but it's much more performant than the low-power/non-shader-based`vah264/5lpenc` (`vah264/5enc` would be preferred but isn't always available) right now. This might change in the future.
 
 ## Requirements
 * VAAPI-compatible hardware/driver on host OS
   * `clinfo |grep "Device Name"` should return something
 * Something sending NDI streams, such as OBS DistroAV
 * Optional: host networking (only when auto discovery is used)
+
+
+### Bandwidth
+With DistroAV, which still uses NDI SpeedHQ, the following network bandwidth can be expected:
+* 1080p60: ~130 Mbit/s
+* 2160p60: ~250 Mbit/s
+
+Ref: https://ndi.video/tech/formats/
+
+
+## Status/Testing (help needed)
+- [x] Intel Arc A380
+  - Ubuntu 24.04 LTS host machine, OBS Studio 30.2.3, Windows 10 64, DistroAV 6.0.0 (SDK 6.0.1.0)
+    - [x] h264 vaapih264enc, RTMP
+    - [x] h265 vaapih265enc, RTMP
+- [x] Intel N100 iGPU (Alder Lake, Intel® UHD Graphics)
+  - Debian 12 host machine on Proxmox (lxc, 6.2.16-4-pve), OBS Studio 30.2.3, MacOS 15.1, DistroAV 6.0.0 (SDK 6.0.1.0)
+    - [x] h264 vaapih264enc, RTMP
+    - [x] h265 vaapih264enc, RTMP
+- [ ] AMD GPU (likely to just work)
+- [ ] NVIDIA GPU (might just work)
+- [ ] AMD iGPU
+
+
 
 
 ## Installation
