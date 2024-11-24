@@ -113,6 +113,9 @@ When we don't receive output from an NDI source for 100s, the container exits. T
 #### VBR HEVC resize to 1080p, high quality, 12mbit
 ```docker run -it --rm --name=obs-hw-offload --device /dev/dri/renderD128:/dev/dri/renderD128 obs-hw-offload /bin/bash -c "mkfifo /tmp/gst_output_pipe && gst-launch-1.0 ndisrc SOURCE timeout=100000 connect-timeout=100000 ! ndisrcdemux name=demux demux.video ! videoconvert ! vaapipostproc width=1920 height=1080 ! vaapih265enc rate-control=vbr bitrate=12000 keyframe-period=30  !  h265parse ! queue ! mux. demux.audio ! audioconvert ! audioresample ! avenc_aac ! queue ! mux. matroskamux name=mux ! filesink location=/tmp/gst_output_pipe | ffmpeg -fflags nobuffer -i /tmp/gst_output_pipe -c:v copy -c:a copy -f flv rtmp://your_server/streamkey"```
 
+#### VBR HEVC source, high quality, ~12mbit
+```docker run -it --rm --name=obs-hw-offload --device /dev/dri/renderD128:/dev/dri/renderD128 pannal/obs-hw-offload /bin/bash -c "mkfifo /tmp/gst_output_pipe && (gst-launch-1.0 ndisrc SOURCE timeout=1000 connect-timeout=100000 ! ndisrcdemux name=demux demux.video ! videoconvert ! vaapih265enc rate-control=qvbr bitrate=20000 keyframe-period=30 trellis=true quality-factor=18 ! h265parse ! queue ! mux. demux.audio ! audioconvert ! audioresample ! avenc_aac ! queue ! mux. matroskamux name=mux ! filesink location=/tmp/gst_output_pipe || rm /tmp/gst_output_pipe) & ffmpeg -fflags nobuffer -i /tmp/gst_output_pipe -c:v copy -c:a copy -f flv rtmp://your_server/streamkey; rm /tmp/gst_output_pipe"```
+
 
 ### Additional snippets for adjusting the pipeline
 #### Specific framerates (for media files), add after `! videoconvert`
