@@ -21,9 +21,134 @@ RUN cd /opt && \
     cargo build -p gst-plugin-ndi --release
 
 
+# build ffmpeg
+FROM ubuntu:24.10 AS ffbuilder
+
+RUN apt-get update && apt-get -y install software-properties-common && \
+    add-apt-repository -y ppa:kobuk-team/intel-graphics && \
+    apt-get -y install \
+    autoconf \
+    automake \
+    build-essential \
+    cmake \
+    curl \
+    git \
+    git-core \
+    libass-dev \
+    libavahi-client3 \
+    libavahi-common3 \
+    libdrm-dev \
+    libfreetype6-dev \
+    libgnutls28-dev \
+    libmp3lame-dev \
+    libtool \
+    libva-dev \
+    libva-glx2 \
+    libvorbis-dev \
+    meson \
+    nasm \
+    ninja-build \
+    pkg-config \
+    texinfo \
+    wget \
+    yasm \
+    zlib1g-dev
+
+#    autoconf \
+#    automake \
+#    build-essential \
+#    cmake \
+#    curl \
+#    git \
+#    git-core \
+#    libass-dev \
+#    intel-ocloc  \
+#    intel-opencl-icd \
+#    intel-media-va-driver-non-free \
+#    libavahi-client3 \
+#    libavahi-common3 \
+#    libdrm-dev \
+#    libfreetype6-dev \
+#    libgnutls28-dev \
+#    libmp3lame-dev \
+#    libmfx1 \
+#    libmfx-gen1.2 \
+#    libtool \
+#    libva-dev \
+#    libva-glx2 \
+#    libvorbis-dev \
+#    libvpl2 \
+#    libvpl-tools \
+#    libze-intel-gpu1  \
+#    libze1  \
+#    meson \
+#    nasm \
+#    ninja-build \
+#    pkg-config \
+#    texinfo \
+#    va-driver-all \
+#    wget \
+#    yasm \
+#    zlib1g-dev
+
+ARG FF_COMMIT=78c4d6c136e10222a0b0ddff639c836f295a9029
+# if not set, `nproc` is used
+ARG COMPILE_CORES
+
+RUN mkdir -p ~/ffmpeg_sources ~/bin &&  \
+    cd ~/ffmpeg_sources && \
+    git clone -b dev/7.0 --single-branch https://gitlab.fem-net.de/broadcast/ffmpeg-patches.git && \
+    curl -LJO https://github.com/FFmpeg/FFmpeg/archive/${FF_COMMIT}.tar.gz && \
+    mkdir FFmpeg && \
+    tar -xvf FFmpeg-${FF_COMMIT}.tar.gz --strip-components=1 -C FFmpeg/ && \
+    cd FFmpeg && \
+    patch -p1 < ../ffmpeg-patches/decklink-use-device-numbers.patch && \
+    patch -p1 < ../ffmpeg-patches/ndi-support.patch
+
+RUN curl -O --output-dir /tmp https://raw.githubusercontent.com/DistroAV/DistroAV/6.0.0/CI/libndi-get.sh && \
+    bash /tmp/libndi-get.sh nocleanup && \
+    mkdir $HOME/ffmpeg_build && \
+    cp -r `find /tmp -name ndidisk* -type d  | sed 1q`/ndisdk/include $HOME/ffmpeg_build && \
+    cp -r `find /tmp -name ndidisk* -type d  | sed 1q`/ndisdk/lib/x86_64-linux-gnu $HOME/ffmpeg_build/lib
+
+# --enable-vaapi is redundant if the correct dependencies are detected
+# fixme: add AMF?
+RUN cd ~/ffmpeg_sources/FFmpeg && \
+    PATH="$HOME/bin:$PATH" PKG_CONFIG_PATH="$HOME/ffmpeg_build/lib/pkgconfig" ./configure \
+      --prefix="$HOME/ffmpeg_build" \
+      --pkg-config-flags="--static" \
+      --extra-cflags="-I$HOME/ffmpeg_build/include" \
+      --extra-ldflags="-L$HOME/ffmpeg_build/lib" \
+      --extra-libs="-lpthread -lm" \
+      --ld="g++" \
+      --bindir="$HOME/bin" \
+      --disable-debug \
+      --enable-libndi_newtek \
+      --enable-vaapi \
+      --enable-nonfree && \
+    PATH="$HOME/bin:$PATH" make -j${COMPILE_CORES:-`nproc`} && \
+    make install
+
+
+#--enable-gpl \
+#--enable-gnutls \
+#--enable-libaom \
+#--enable-libass \
+#--enable-libfdk-aac \
+#--enable-libfreetype \
+#--enable-libmp3lame \
+#--enable-libopus \
+#--enable-libsvtav1 \
+#--enable-libdav1d \
+#--enable-libvorbis \
+#--enable-libvpx \
+#--enable-libx264 \
+#--enable-libx265 \
+
 # run
 FROM ubuntu:24.10 AS runner
 COPY --from=builder /opt/gst-plugins-rs-dev/target/release/*.so /opt/gst-plugins-rs/
+COPY --from=ffbuilder /root/bin /usr/local/bin
 
 WORKDIR /app
 COPY . /app
@@ -32,7 +157,7 @@ ARG DEBIAN_FRONTEND="noninteractive"
 SHELL ["/bin/bash", "-c"]
 ENV NVIDIA_DRIVER_CAPABILITIES="compute,video,utility"
 ENV GST_PLUGIN_PATH="/opt/gst-plugins-rs"
-ENV USE_AUTODISCOVERY=false
+ENV USE_AUTODISCOVERY=true
 
 RUN apt-get update && apt-get -y install software-properties-common && \
     add-apt-repository -y ppa:kobuk-team/intel-graphics
@@ -60,8 +185,7 @@ RUN apt-get -y install \
     gstreamer1.0-plugins-ugly \
     gstreamer1.0-vaapi \
     gstreamer1.0-plugins-base-apps \
-    gstreamer1.0-libav \
-    ffmpeg
+    gstreamer1.0-libav
 
 # LibNDI
 # alternatively, get the release .deb from https://github.com/DistroAV/DistroAV/releases
