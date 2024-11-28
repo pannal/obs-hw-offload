@@ -1,3 +1,10 @@
+# can be "stock" for ffmpeg from the package manager; "small" to build ffmpeg with VAAPI and NDI support;
+# "full" for a complete ffmpeg build
+ARG FF_BUILD=small
+ARG FF_COMMIT=78c4d6c136e10222a0b0ddff639c836f295a9029
+# if not set, `nproc` is used
+ARG COMPILE_CORES
+
 # build the gstreamer ndi plugin
 FROM ubuntu:24.10 AS builder
 
@@ -22,7 +29,9 @@ RUN cd /opt && \
 
 
 # build ffmpeg
-FROM ubuntu:24.10 AS ffbuilder
+FROM ubuntu:24.10 AS ffbuilder-small
+ARG FF_COMMIT
+ARG COMPILE_CORES
 
 RUN apt-get update && apt-get -y install software-properties-common && \
     add-apt-repository -y ppa:kobuk-team/intel-graphics && \
@@ -53,47 +62,6 @@ RUN apt-get update && apt-get -y install software-properties-common && \
     wget \
     yasm \
     zlib1g-dev
-
-#    autoconf \
-#    automake \
-#    build-essential \
-#    cmake \
-#    curl \
-#    git \
-#    git-core \
-#    libass-dev \
-#    intel-ocloc  \
-#    intel-opencl-icd \
-#    intel-media-va-driver-non-free \
-#    libavahi-client3 \
-#    libavahi-common3 \
-#    libdrm-dev \
-#    libfreetype6-dev \
-#    libgnutls28-dev \
-#    libmp3lame-dev \
-#    libmfx1 \
-#    libmfx-gen1.2 \
-#    libtool \
-#    libva-dev \
-#    libva-glx2 \
-#    libvorbis-dev \
-#    libvpl2 \
-#    libvpl-tools \
-#    libze-intel-gpu1  \
-#    libze1  \
-#    meson \
-#    nasm \
-#    ninja-build \
-#    pkg-config \
-#    texinfo \
-#    va-driver-all \
-#    wget \
-#    yasm \
-#    zlib1g-dev
-
-ARG FF_COMMIT=78c4d6c136e10222a0b0ddff639c836f295a9029
-# if not set, `nproc` is used
-ARG COMPILE_CORES
 
 RUN mkdir -p ~/ffmpeg_sources ~/bin &&  \
     cd ~/ffmpeg_sources && \
@@ -145,10 +113,18 @@ RUN cd ~/ffmpeg_sources/FFmpeg && \
 #--enable-libx264 \
 #--enable-libx265 \
 
+# dummy image for ff stock
+FROM ubuntu:24.10 AS ffbuilder-stock
+RUN mkdir /root/bin
+
+
+FROM ffbuilder-${FF_BUILD} as ff
+
+
 # run
 FROM ubuntu:24.10 AS runner
 COPY --from=builder /opt/gst-plugins-rs-dev/target/release/*.so /opt/gst-plugins-rs/
-COPY --from=ffbuilder /root/bin /usr/local/bin
+COPY --from=ff /root/bin /usr/local/bin
 
 WORKDIR /app
 COPY . /app
@@ -157,7 +133,9 @@ ARG DEBIAN_FRONTEND="noninteractive"
 SHELL ["/bin/bash", "-c"]
 ENV NVIDIA_DRIVER_CAPABILITIES="compute,video,utility"
 ENV GST_PLUGIN_PATH="/opt/gst-plugins-rs"
-ENV USE_AUTODISCOVERY=true
+ENV USE_AUTODISCOVERY=false
+ARG FF_BUILD
+ENV FF_BUILD=$FF_BUILD
 
 RUN apt-get update && apt-get -y install software-properties-common && \
     add-apt-repository -y ppa:kobuk-team/intel-graphics
@@ -185,7 +163,8 @@ RUN apt-get -y install \
     gstreamer1.0-plugins-ugly \
     gstreamer1.0-vaapi \
     gstreamer1.0-plugins-base-apps \
-    gstreamer1.0-libav
+    gstreamer1.0-libav && \
+    if [ "${FF_BUILD}" = "stock" ]; then apt-get -y install ffmpeg; fi
 
 # LibNDI
 # alternatively, get the release .deb from https://github.com/DistroAV/DistroAV/releases
