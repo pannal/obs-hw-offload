@@ -4,9 +4,9 @@ ARG FF_BUILD=small
 
 # the ffmpeg commit to use (the default one has been tested)
 ARG FF_COMMIT=78c4d6c136e10222a0b0ddff639c836f295a9029
-ARG FF_BUILDOPTS=--disable-debug
+ARG FF_BUILDOPTS="--disable-debug --disable-doc"
 
-# the ffmpeg commit to use (the default one has been tested)
+# the gstreamer-plugins-rs commit to use (the default one has been tested)
 ARG GST_PLUGINS_COMMIT=d5425c52251f3fc0c21a6d994f9e1e6b46670daf
 
 # how many threads to use when compiling if not set, `nproc` is used
@@ -73,6 +73,7 @@ RUN apt-get update && apt-get -y install software-properties-common && \
     automake \
     build-essential \
     cmake \
+    git \
     libass-dev \
     libavahi-client3 \
     libavahi-common3 \
@@ -81,9 +82,11 @@ RUN apt-get update && apt-get -y install software-properties-common && \
     libgnutls28-dev \
     libmp3lame-dev \
     libtool \
+    libssl-dev \
     libva-dev \
     libva-glx2 \
     libvorbis-dev \
+    libzstd-dev \
     meson \
     nasm \
     ninja-build \
@@ -91,6 +94,16 @@ RUN apt-get update && apt-get -y install software-properties-common && \
     texinfo \
     yasm \
     zlib1g-dev
+
+# build SRT
+RUN cd ~/ffmpeg_sources && \
+    git clone --depth 1 https://github.com/Haivision/srt.git && \
+    mkdir srt/build && \
+    cd srt/build && \
+    PATH="$HOME/bin:$PATH" PKG_CONFIG_PATH="$HOME/ffmpeg_build/lib/pkgconfig" \
+      cmake -DCMAKE_INSTALL_PREFIX="$HOME/ffmpeg_build" -DENABLE_C_DEPS=ON -DENABLE_SHARED=OFF -DENABLE_STATIC=ON .. && \
+    make -j${COMPILE_CORES:-`nproc`} && \
+    make install
 
 # --enable-vaapi is redundant if the correct dependencies are detected
 RUN mkdir ~/bin &&  \
@@ -104,7 +117,7 @@ RUN mkdir ~/bin &&  \
       --ld="g++" \
       --bindir="$HOME/bin" \
       ${FF_BUILDOPTS} \
-      --enable-libndi_newtek \
+      --enable-libsrt \
       --enable-vaapi \
       --enable-nonfree && \
     PATH="$HOME/bin:$PATH" make -j${COMPILE_CORES:-`nproc`} && \
@@ -117,6 +130,8 @@ COPY --from=ffbuildbase /root/ffmpeg_sources /root/ffmpeg_sources
 COPY --from=ffbuildbase /root/ffmpeg_build /root/ffmpeg_build
 ARG FF_BUILDOPTS
 ARG COMPILE_CORES
+# see https://arnon.dk/matching-sm-architectures-arch-and-gencode-for-various-nvidia-cards/
+ARG CUDA_NVCCFLAGS="-gencode arch=compute_75,code=sm_75 -O2"
 
 RUN apt-get update && apt-get -y install software-properties-common && \
     add-apt-repository -y ppa:kobuk-team/intel-graphics && \
@@ -128,6 +143,8 @@ RUN apt-get update && apt-get -y install software-properties-common && \
     curl \
     git \
     git-core \
+    gnutls-bin \
+    libssl-dev \
     libass-dev \
     libavahi-client3 \
     libavahi-common3 \
@@ -135,22 +152,138 @@ RUN apt-get update && apt-get -y install software-properties-common && \
     libfreetype6-dev \
     libgnutls28-dev \
     libmp3lame-dev \
+    libnuma-dev \
     libtool \
+    libunistring-dev \
     libva-dev \
     libva-glx2 \
     libvorbis-dev \
+    libzstd-dev \
     meson \
     nasm \
+    nvidia-cuda-toolkit \
     ninja-build \
+    openssl \
     pkg-config \
     texinfo \
+    sudo \
     wget \
     yasm \
     zlib1g-dev
 
+# build AMF
+RUN cd ~/ffmpeg_sources && \
+    wget -O amf.tar.gz https://github.com/GPUOpen-LibrariesAndSDKs/AMF/releases/download/v1.4.35/AMF-headers-v1.4.35.tar.gz && \
+    tar xvf amf.tar.gz && \
+    mkdir $HOME/ffmpeg_build/include/AMF && \
+    cp -R amf-headers-v1.4.35/AMF/* $HOME/ffmpeg_build/include/AMF/
+
+# build SRT
+RUN cd ~/ffmpeg_sources && \
+    git clone --depth 1 https://github.com/Haivision/srt.git && \
+    mkdir srt/build && \
+    cd srt/build && \
+    PATH="$HOME/bin:$PATH" PKG_CONFIG_PATH="$HOME/ffmpeg_build/lib/pkgconfig" \
+      cmake -DCMAKE_INSTALL_PREFIX="$HOME/ffmpeg_build" -DENABLE_C_DEPS=ON -DENABLE_SHARED=OFF -DENABLE_STATIC=ON .. && \
+    make -j${COMPILE_CORES:-`nproc`} && \
+    make install
+
+# build cuda/nvcc/cuvid/nvenc
+RUN cd ~/ffmpeg_sources && \
+    wget -O nv.tar.gz https://github.com/FFmpeg/nv-codec-headers/releases/download/n12.2.72.0/nv-codec-headers-12.2.72.0.tar.gz && \
+    tar xvf nv.tar.gz && \
+    cd nv-codec-headers-12.2.72.0 && \
+    make -j${COMPILE_CORES:-`nproc`} PREFIX="$HOME/ffmpeg_build" BINDIR="$HOME/bin" && \
+    make install PREFIX="$HOME/ffmpeg_build" BINDIR="$HOME/bin"
+
+# build libx264
+RUN cd ~/ffmpeg_sources && \
+    git -C x264 pull 2> /dev/null || git clone --depth 1 https://code.videolan.org/videolan/x264.git && \
+    cd x264 && \
+    PATH="$HOME/bin:$PATH" PKG_CONFIG_PATH="$HOME/ffmpeg_build/lib/pkgconfig" ./configure --prefix="$HOME/ffmpeg_build" --bindir="$HOME/bin" --enable-static --enable-pic && \
+    PATH="$HOME/bin:$PATH" make -j${COMPILE_CORES:-`nproc`} && \
+    make install
+
+# build libx265
+RUN cd ~/ffmpeg_sources && \
+    wget -O x265.tar.bz2 https://bitbucket.org/multicoreware/x265_git/get/master.tar.bz2 && \
+    tar xjvf x265.tar.bz2 && \
+    cd multicoreware*/build/linux && \
+    PATH="$HOME/bin:$PATH" cmake -G "Unix Makefiles" -DCMAKE_INSTALL_PREFIX="$HOME/ffmpeg_build" -DENABLE_SHARED=off ../../source && \
+    PATH="$HOME/bin:$PATH" make -j${COMPILE_CORES:-`nproc`} && \
+    make install
+
+# build libvpx
+RUN cd ~/ffmpeg_sources && \
+    git -C libvpx pull 2> /dev/null || git clone --depth 1 https://chromium.googlesource.com/webm/libvpx.git && \
+    cd libvpx && \
+    PATH="$HOME/bin:$PATH" ./configure --prefix="$HOME/ffmpeg_build" --disable-examples --disable-unit-tests --enable-vp9-highbitdepth --as=yasm && \
+    PATH="$HOME/bin:$PATH" make -j${COMPILE_CORES:-`nproc`} && \
+    make install
+
+# build FDK-AAC
+RUN cd ~/ffmpeg_sources && \
+    git -C fdk-aac pull 2> /dev/null || git clone --depth 1 https://github.com/mstorsjo/fdk-aac && \
+    cd fdk-aac && \
+    autoreconf -fiv && \
+    ./configure --prefix="$HOME/ffmpeg_build" --disable-shared && \
+    make -j${COMPILE_CORES:-`nproc`} && \
+    make install
+
+# build libopus
+RUN cd ~/ffmpeg_sources && \
+    git -C opus pull 2> /dev/null || git clone --depth 1 https://github.com/xiph/opus.git && \
+    cd opus && \
+    ./autogen.sh && \
+    ./configure --prefix="$HOME/ffmpeg_build" --disable-shared && \
+    make -j${COMPILE_CORES:-`nproc`} && \
+    make install
+
+# build AOM
+RUN cd ~/ffmpeg_sources && \
+    git -C aom pull 2> /dev/null || git clone --depth 1 https://aomedia.googlesource.com/aom && \
+    mkdir -p aom_build && \
+    cd aom_build && \
+    PATH="$HOME/bin:$PATH" PKG_CONFIG_PATH="$HOME/ffmpeg_build/lib/pkgconfig" cmake -G "Unix Makefiles" \
+      -DCMAKE_INSTALL_PREFIX="$HOME/ffmpeg_build" -DENABLE_TESTS=OFF -DENABLE_NASM=on ../aom && \
+    PATH="$HOME/bin:$PATH" make -j${COMPILE_CORES:-`nproc`} && \
+    make install
+
+# build libsvtav1
+RUN cd ~/ffmpeg_sources && \
+    git -C SVT-AV1 pull 2> /dev/null || git clone https://gitlab.com/AOMediaCodec/SVT-AV1.git && \
+    mkdir -p SVT-AV1/build && \
+    cd SVT-AV1/build && \
+    PATH="$HOME/bin:$PATH" PKG_CONFIG_PATH="$HOME/ffmpeg_build/lib/pkgconfig" \
+      cmake -G "Unix Makefiles" -DCMAKE_INSTALL_PREFIX="$HOME/ffmpeg_build" -DCMAKE_BUILD_TYPE=Release \
+      -DBUILD_DEC=OFF -DBUILD_SHARED_LIBS=OFF .. && \
+    PATH="$HOME/bin:$PATH" make -j${COMPILE_CORES:-`nproc`} && \
+    make install
+
+# build Dav1d
+RUN cd ~/ffmpeg_sources && \
+    git -C dav1d pull 2> /dev/null || git clone --depth 1 https://code.videolan.org/videolan/dav1d.git && \
+    mkdir -p dav1d/build && \
+    cd dav1d/build && \
+    meson setup -Denable_tools=false -Denable_tests=false --default-library=static .. --prefix "$HOME/ffmpeg_build" --libdir="$HOME/ffmpeg_build/lib" && \
+    ninja -j${COMPILE_CORES:-`nproc`} && \
+    ninja install
+
+# build libvmaf
+RUN cd ~/ffmpeg_sources && \
+    wget https://github.com/Netflix/vmaf/archive/v3.0.0.tar.gz && \
+    tar xvf v3.0.0.tar.gz && \
+    mkdir -p vmaf-3.0.0/libvmaf/build &&\
+    cd vmaf-3.0.0/libvmaf/build && \
+    meson setup -Denable_tests=false -Denable_docs=false --buildtype=release --default-library=static .. --prefix "$HOME/ffmpeg_build" --bindir="$HOME/bin" --libdir="$HOME/ffmpeg_build/lib" && \
+    ninja -j${COMPILE_CORES:-`nproc`} && \
+    ninja install
+
 # --enable-vaapi is redundant if the correct dependencies are detected
+# the order of the cuda toolkit is important here, as it provides its own g++ wrapper and we don't want to use that when
+# compiling ffmpeg, but we need the path for nvcc; we could otherwise also just set --ld="g++14"
 RUN cd ~/ffmpeg_sources/FFmpeg && \
-    PATH="$HOME/bin:$PATH" PKG_CONFIG_PATH="$HOME/ffmpeg_build/lib/pkgconfig" ./configure \
+    PATH="$HOME/bin:$PATH:/usr/lib/nvidia-cuda-toolkit/bin" PKG_CONFIG_PATH="$HOME/ffmpeg_build/lib/pkgconfig" ./configure \
       --prefix="$HOME/ffmpeg_build" \
       --pkg-config-flags="--static" \
       --extra-cflags="-I$HOME/ffmpeg_build/include" \
@@ -159,7 +292,28 @@ RUN cd ~/ffmpeg_sources/FFmpeg && \
       --ld="g++" \
       --bindir="$HOME/bin" \
       ${FF_BUILDOPTS} \
+      --enable-amf \
+      --enable-cuda-nvcc \
+      --enable-cuda-llvm \
+      --enable-cuvid \
+      --enable-gpl \
+      --enable-gnutls \
+      --nvccflags="${CUDA_NVCCFLAGS}" \
+      --enable-libaom \
+      --enable-libass \
+      --enable-libfdk-aac \
+      --enable-libfreetype \
+      --enable-libmp3lame \
+      --enable-libopus \
+      --enable-libsrt \
+      --enable-libsvtav1 \
+      --enable-libdav1d \
+      --enable-libvorbis \
+      --enable-libvpx \
+      --enable-libx264 \
+      --enable-libx265 \
       --enable-libndi_newtek \
+      --enable-nvenc \
       --enable-vaapi \
       --enable-nonfree && \
     PATH="$HOME/bin:$PATH" make -j${COMPILE_CORES:-`nproc`} && \
@@ -184,10 +338,12 @@ COPY . /app
 
 ARG DEBIAN_FRONTEND="noninteractive"
 SHELL ["/bin/bash", "-c"]
+ENV NVIDIA_VISIBLE_DEVICES="all"
 ENV NVIDIA_DRIVER_CAPABILITIES="compute,video,utility"
 ENV GST_PLUGIN_PATH="/opt/gst-plugins-rs"
 ENV USE_AUTODISCOVERY=false
 ARG FF_BUILD
+ARG WITH_CUDA
 ENV FF_BUILD=$FF_BUILD
 
 RUN apt-get update && apt-get -y install software-properties-common && \
@@ -217,7 +373,8 @@ RUN apt-get -y install \
     gstreamer1.0-vaapi \
     gstreamer1.0-plugins-base-apps \
     gstreamer1.0-libav && \
-    if [ "${FF_BUILD}" = "stock" ]; then apt-get -y install ffmpeg; fi
+    if [ "${FF_BUILD}" = "stock" ]; then apt-get -y install ffmpeg; fi && \
+    if [ "${WITH_CUDA}" = "true" ]; then apt-get -y install nvidia-cuda-toolkit; fi
 
 # LibNDI
 # alternatively, get the release .deb from https://github.com/DistroAV/DistroAV/releases
