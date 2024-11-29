@@ -1,10 +1,12 @@
+ARG VERSION=0.1.2
+
 # can be "stock" for ffmpeg from the package manager; "small" to build ffmpeg with VAAPI and NDI support;
-# "full" for a complete ffmpeg build
+# "big" for a more complete ffmpeg build
 ARG FF_BUILD=small
+ARG FF_BUILDOPTS="--disable-debug --disable-doc"
 
 # the ffmpeg commit to use (the default one has been tested)
 ARG FF_COMMIT=78c4d6c136e10222a0b0ddff639c836f295a9029
-ARG FF_BUILDOPTS="--disable-debug --disable-doc"
 
 # the gstreamer-plugins-rs commit to use (the default one has been tested)
 ARG GST_PLUGINS_COMMIT=d5425c52251f3fc0c21a6d994f9e1e6b46670daf
@@ -63,8 +65,12 @@ RUN curl -O --output-dir /tmp https://raw.githubusercontent.com/DistroAV/DistroA
 FROM ubuntu:24.10 AS ffbuilder-small
 COPY --from=ffbuildbase /root/ffmpeg_sources /root/ffmpeg_sources
 COPY --from=ffbuildbase /root/ffmpeg_build /root/ffmpeg_build
+
+# pull global args
 ARG FF_BUILDOPTS
 ARG COMPILE_CORES
+ARG FF_COMMIT
+ARG VERSION
 
 RUN apt-get update && apt-get -y install software-properties-common && \
     add-apt-repository -y ppa:kobuk-team/intel-graphics && \
@@ -101,7 +107,8 @@ RUN cd ~/ffmpeg_sources && \
     mkdir srt/build && \
     cd srt/build && \
     PATH="$HOME/bin:$PATH" PKG_CONFIG_PATH="$HOME/ffmpeg_build/lib/pkgconfig" \
-      cmake -DCMAKE_INSTALL_PREFIX="$HOME/ffmpeg_build" -DENABLE_C_DEPS=ON -DENABLE_SHARED=OFF -DENABLE_STATIC=ON .. && \
+      cmake -DCMAKE_INSTALL_PREFIX="$HOME/ffmpeg_build" -DEXECUTABLE_OUTPUT_PATH="$HOME/bin" \
+        -DENABLE_C_DEPS=ON -DENABLE_SHARED=OFF -DENABLE_STATIC=ON .. && \
     make -j${COMPILE_CORES:-`nproc`} && \
     make install
 
@@ -114,21 +121,32 @@ RUN mkdir ~/bin &&  \
       --extra-cflags="-I$HOME/ffmpeg_build/include" \
       --extra-ldflags="-L$HOME/ffmpeg_build/lib" \
       --extra-libs="-lpthread -lm" \
+      --extra-version="`echo ${FF_COMMIT} | cut -c 1-7`-oho-${VERSION}" \
       --ld="g++" \
       --bindir="$HOME/bin" \
       ${FF_BUILDOPTS} \
+      --enable-libndi_newtek \
       --enable-libsrt \
       --enable-vaapi \
+      --enable-gpl \
+      --enable-version3 \
       --enable-nonfree && \
     PATH="$HOME/bin:$PATH" make -j${COMPILE_CORES:-`nproc`} && \
     make install
 
 
-# build ffmpeg-full
-FROM ubuntu:24.10 AS ffbuilder-full
+# build ffmpeg-big
+FROM ubuntu:24.10 AS ffbuilder-big
 COPY --from=ffbuildbase /root/ffmpeg_sources /root/ffmpeg_sources
 COPY --from=ffbuildbase /root/ffmpeg_build /root/ffmpeg_build
+
+# set to empty to not build ffplay
+ARG FF_FFPLAY_PKG_ADD="libsdl2-dev"
+
+# pull global args
 ARG FF_BUILDOPTS
+ARG FF_COMMIT
+ARG VERSION
 ARG COMPILE_CORES
 # see https://arnon.dk/matching-sm-architectures-arch-and-gencode-for-various-nvidia-cards/
 ARG CUDA_NVCCFLAGS="-gencode arch=compute_75,code=sm_75 -O2"
@@ -144,7 +162,6 @@ RUN apt-get update && apt-get -y install software-properties-common && \
     git \
     git-core \
     gnutls-bin \
-    libssl-dev \
     libass-dev \
     libavahi-client3 \
     libavahi-common3 \
@@ -153,11 +170,32 @@ RUN apt-get update && apt-get -y install software-properties-common && \
     libgnutls28-dev \
     libmp3lame-dev \
     libnuma-dev \
+    libopenjp2-7 \
+    libopenjp2-7-dev \
+    libopenjpip7 \
+    libsmbclient-dev \
+    libspeex-dev \
+    libspeex1 \
+    libspeexdsp-dev \
+    libspeexdsp1 \
+    libspeex-ocaml \
+    libspeex-ocaml-dev \
+    libssh-dev \
+    libssl-dev \
+    libtheora-dev \
+    libtheora0 \
+    libtheora-ocaml \
+    libtheora-ocaml-dev \
     libtool \
     libunistring-dev \
     libva-dev \
     libva-glx2 \
     libvorbis-dev \
+    libwebp-dev \
+    libwebp7 \
+    libwebpdecoder3 \
+    libwebpdemux2 \
+    libwebpmux3 \
     libzstd-dev \
     meson \
     nasm \
@@ -169,9 +207,9 @@ RUN apt-get update && apt-get -y install software-properties-common && \
     sudo \
     wget \
     yasm \
-    zlib1g-dev
+    zlib1g-dev ${FF_FFPLAY_PKG_ADD}
 
-# build AMF
+# get AMF headers
 RUN cd ~/ffmpeg_sources && \
     wget -O amf.tar.gz https://github.com/GPUOpen-LibrariesAndSDKs/AMF/releases/download/v1.4.35/AMF-headers-v1.4.35.tar.gz && \
     tar xvf amf.tar.gz && \
@@ -184,7 +222,8 @@ RUN cd ~/ffmpeg_sources && \
     mkdir srt/build && \
     cd srt/build && \
     PATH="$HOME/bin:$PATH" PKG_CONFIG_PATH="$HOME/ffmpeg_build/lib/pkgconfig" \
-      cmake -DCMAKE_INSTALL_PREFIX="$HOME/ffmpeg_build" -DENABLE_C_DEPS=ON -DENABLE_SHARED=OFF -DENABLE_STATIC=ON .. && \
+      cmake -DCMAKE_INSTALL_PREFIX="$HOME/ffmpeg_build" -DEXECUTABLE_OUTPUT_PATH="$HOME/bin" \
+        -DENABLE_C_DEPS=ON -DENABLE_SHARED=OFF -DENABLE_STATIC=ON .. && \
     make -j${COMPILE_CORES:-`nproc`} && \
     make install
 
@@ -209,7 +248,8 @@ RUN cd ~/ffmpeg_sources && \
     wget -O x265.tar.bz2 https://bitbucket.org/multicoreware/x265_git/get/master.tar.bz2 && \
     tar xjvf x265.tar.bz2 && \
     cd multicoreware*/build/linux && \
-    PATH="$HOME/bin:$PATH" cmake -G "Unix Makefiles" -DCMAKE_INSTALL_PREFIX="$HOME/ffmpeg_build" -DENABLE_SHARED=off ../../source && \
+    PATH="$HOME/bin:$PATH" cmake -G "Unix Makefiles" -DCMAKE_INSTALL_PREFIX="$HOME/ffmpeg_build" \
+      -DEXECUTABLE_OUTPUT_PATH="$HOME/bin" -DENABLE_SHARED=off ../../source && \
     PATH="$HOME/bin:$PATH" make -j${COMPILE_CORES:-`nproc`} && \
     make install
 
@@ -245,7 +285,8 @@ RUN cd ~/ffmpeg_sources && \
     mkdir -p aom_build && \
     cd aom_build && \
     PATH="$HOME/bin:$PATH" PKG_CONFIG_PATH="$HOME/ffmpeg_build/lib/pkgconfig" cmake -G "Unix Makefiles" \
-      -DCMAKE_INSTALL_PREFIX="$HOME/ffmpeg_build" -DENABLE_TESTS=OFF -DENABLE_NASM=on ../aom && \
+      -DCMAKE_INSTALL_PREFIX="$HOME/ffmpeg_build" -DEXECUTABLE_OUTPUT_PATH="$HOME/bin" \
+      -DENABLE_TESTS=OFF -DENABLE_NASM=on ../aom && \
     PATH="$HOME/bin:$PATH" make -j${COMPILE_CORES:-`nproc`} && \
     make install
 
@@ -256,7 +297,7 @@ RUN cd ~/ffmpeg_sources && \
     cd SVT-AV1/build && \
     PATH="$HOME/bin:$PATH" PKG_CONFIG_PATH="$HOME/ffmpeg_build/lib/pkgconfig" \
       cmake -G "Unix Makefiles" -DCMAKE_INSTALL_PREFIX="$HOME/ffmpeg_build" -DCMAKE_BUILD_TYPE=Release \
-      -DBUILD_DEC=OFF -DBUILD_SHARED_LIBS=OFF .. && \
+      -DEXECUTABLE_OUTPUT_PATH="$HOME/bin" -DBUILD_DEC=OFF -DBUILD_SHARED_LIBS=OFF .. && \
     PATH="$HOME/bin:$PATH" make -j${COMPILE_CORES:-`nproc`} && \
     make install
 
@@ -289,6 +330,7 @@ RUN cd ~/ffmpeg_sources/FFmpeg && \
       --extra-cflags="-I$HOME/ffmpeg_build/include" \
       --extra-ldflags="-L$HOME/ffmpeg_build/lib" \
       --extra-libs="-lpthread -lm" \
+      --extra-version="`echo ${FF_COMMIT} | cut -c 1-7`-oho-${VERSION}" \
       --ld="g++" \
       --bindir="$HOME/bin" \
       ${FF_BUILDOPTS} \
@@ -301,20 +343,28 @@ RUN cd ~/ffmpeg_sources/FFmpeg && \
       --nvccflags="${CUDA_NVCCFLAGS}" \
       --enable-libaom \
       --enable-libass \
+      --enable-libdav1d \
       --enable-libfdk-aac \
       --enable-libfreetype \
       --enable-libmp3lame \
+      --enable-libopenjpeg \
       --enable-libopus \
+      --enable-libsmbclient \
       --enable-libsrt \
+      --enable-libssh \
       --enable-libsvtav1 \
-      --enable-libdav1d \
+      --enable-libtheora \
+      --enable-libvmaf \
       --enable-libvorbis \
       --enable-libvpx \
+      --enable-libwebp \
       --enable-libx264 \
       --enable-libx265 \
       --enable-libndi_newtek \
       --enable-nvenc \
       --enable-vaapi \
+      --enable-vdpau \
+      --enable-version3 \
       --enable-nonfree && \
     PATH="$HOME/bin:$PATH" make -j${COMPILE_CORES:-`nproc`} && \
     make install
@@ -344,7 +394,6 @@ ENV GST_PLUGIN_PATH="/opt/gst-plugins-rs"
 ENV USE_AUTODISCOVERY=false
 ARG FF_BUILD
 ARG WITH_CUDA
-ENV FF_BUILD=$FF_BUILD
 
 RUN apt-get update && apt-get -y install software-properties-common && \
     add-apt-repository -y ppa:kobuk-team/intel-graphics
@@ -374,7 +423,8 @@ RUN apt-get -y install \
     gstreamer1.0-plugins-base-apps \
     gstreamer1.0-libav && \
     if [ "${FF_BUILD}" = "stock" ]; then apt-get -y install ffmpeg; fi && \
-    if [ "${WITH_CUDA}" = "true" ]; then apt-get -y install nvidia-cuda-toolkit; fi
+    if [ "${WITH_CUDA}" = "true" ]; then apt-get -y install nvidia-cuda-toolkit; fi && \
+    if [ "${FF_BUILD}" = "big" ]; then apt-get -y install libsmbclient-dev; fi
 
 # LibNDI
 # alternatively, get the release .deb from https://github.com/DistroAV/DistroAV/releases
