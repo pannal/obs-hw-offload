@@ -1,7 +1,7 @@
 # obs-hw-offload
 ### A "soft capture card" or: headless NDI® OBS offloading with HW transcoding
 
-![](logo_smol.png)
+[![OBS HW Offload logo](logo_smol.png)](#)
 
 ## Introduction
 Ever wondered why you have an Intel CPU with QuickSync capabilities in your network, or a server with an Arc GPU, but you're still using your gaming
@@ -24,6 +24,7 @@ For now this project is just a container built with the right environment to ena
 ## Requirements
 * Ideally VAAPI-compatible hardware/driver on host OS (at least something in `/dev/dri*`)
   * NVENC/CUVID/AMF should work as well (untested as of now; possibly only active in `big` builds)
+  * To use an NVIDIA card you need the correct container parameters (such as `runtime=nvidia`)
 * Something sending NDI streams, such as OBS DistroAV
 * Something to send your stream to (via RTMP, or any other protocol)
 * Optional: host networking (only when auto discovery is used)
@@ -95,7 +96,7 @@ Run docker with `--network=host` and `--env USE_AUTODISCOVERY=true`
 docker run -it --rm --name obs-hw-offload --device /dev/dri/renderD128:/dev/dri/renderD128 pannal/obs-hw-offload \
   ffmpeg -fflags nobuffer -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi \
    -f libndi_newtek -analyzeduration 5M -probesize 50M SOURCE \
-   -vf 'format=nv12,hwupload' -c:v hevc_vaapi -maxrate 20M -b:v 14M -qp 20 -rc_mode QVBR -map 0:0 -map 0:1 -c:a aac -b:a 128k \
+   -vf 'format=nv12,hwupload' -c:v hevc_vaapi -maxrate 20M -b:v 14M -qp 20 -rc_mode QVBR -map 0:0 -map 0:1 -c:a libfdk_aac -b:a 128k \
    -f flv TARGET
 ```
 
@@ -104,7 +105,7 @@ docker run -it --rm --name obs-hw-offload --device /dev/dri/renderD128:/dev/dri/
 docker run -it --rm --name obs-hw-offload --device /dev/dri/renderD128:/dev/dri/renderD128 pannal/obs-hw-offload \
   ffmpeg -fflags nobuffer -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi \
    -f libndi_newtek -analyzeduration 5M -probesize 50M SOURCE \
-   -vf 'format=nv12,hwupload,scale_vaapi=w=1920:h=1080' -c:v hevc_vaapi -b:v 8M -rc_mode CBR -map 0:0 -map 0:1 -c:a aac -b:a 192k \
+   -vf 'format=nv12,hwupload,scale_vaapi=w=1920:h=1080' -c:v hevc_vaapi -b:v 8M -rc_mode CBR -map 0:0 -map 0:1 -c:a libfdk_aac -b:a 192k \
    -f flv TARGET
 ```
 
@@ -115,7 +116,7 @@ docker run -it --rm --name obs-hw-offload --device /dev/dri/renderD128:/dev/dri/
 * [VAAPI tips](https://gist.github.com/Brainiarc7/95c9338a737aa36d9bb2931bed379219)
 
 
-## Persistance
+### Persistance
 
 ###### FFmpeg
 Not implemented yet.
@@ -125,7 +126,7 @@ When we don't receive output from an NDI source for 100s, the container exits. T
 
 
 
-# Examples (GStreamer)
+### Examples (GStreamer)
 <details><summary>Expand</summary>
 
 Note:
@@ -174,7 +175,7 @@ Replace `queue` with for example `queue max-size-time=500000000 max-size-buffers
 
 </details>
 
-#### Debugging
+### Debugging
 ###### GStreamer
 Prepend `gst-launch-1.0` with `GST_DEBUG=3 `
 
@@ -182,7 +183,7 @@ Prepend `gst-launch-1.0` with `GST_DEBUG=3 `
 Add parameter `-loglevel debug` after `ffmpeg` command
 
 
-#### List Encoders/Codecs
+### List Encoders/Codecs
 ###### FFmpeg
 ```
 docker run -it --rm --name obs-hw-offload --device /dev/dri/renderD128:/dev/dri/renderD128 \
@@ -198,9 +199,9 @@ docker run -it --rm --entrypoint gst-inspect-1.0 --device /dev/dri/renderD128:/d
 ## GStreamer vs. FFmpeg
 |                    | GStreamer | FFmpeg |                                                                                                                               |
 |--------------------|-----------|-------|-------------------------------------------------------------------------------------------------------------------------------|
-| Efficiency         | ⭐⭐⭐⭐⭐      | ⭐⭐⭐⭐   | GST uses a little more CPU than FFmpeg when hw-transcoding in the same spec                                                   |
+| Efficiency         | ⭐⭐⭐⭐⭐      | ⭐⭐⭐⭐   | FFmpeg uses a little more CPU than GST when hw-transcoding in the same spec                                                   |
 | NDI implementation | ⭐⭐⭐⭐      | ⭐⭐    | FFmpeg: NDI support isn't official, really old (see [here](https://trac.ffmpeg.org/ticket/7589) and has been patched back in) |
-| Ease of use        | ⭐⭐        | ⭐⭐⭐⭐   | GST doesn't support E-RTMP (>h264)                                                                                             |
+| Ease of use        | ⭐⭐        | ⭐⭐⭐⭐   | GST doesn't support E-RTMP (>h264)                                                                                            |
 | Codec support      | ⭐⭐⭐       | ⭐⭐⭐⭐⭐ | VAAPI codec detection can be cumbersome with GST                                                                              |
 | Popularity/Support | ⭐⭐⭐      | ⭐⭐⭐⭐  | 
 
@@ -215,22 +216,64 @@ _In order to use anything other than h264 with GStreamer and RTMP, FFmpeg has to
     - GStreamer (+FFmpeg for h265)
       - [x] h264 vaapih264enc, RTMP
       - [x] h265 vaapih265enc, RTMP
+    - FFmpeg
+      - [x] hevc_vaapi, RTMP
 - [x] Intel N100 iGPU (Alder Lake, Intel® UHD Graphics)
   - Debian 12 host machine on Proxmox (lxc, 6.2.16-4-pve), OBS Studio 30.2.3, MacOS 15.1, DistroAV 6.0.0 (SDK 6.0.1.0)
-    - [x] h264 vaapih264enc, RTMP
-    - [x] h265 vaapih264enc, RTMP
+    - GStreamer
+      - [x] h264 vaapih264enc, RTMP
+      - [x] h265 vaapih264enc, RTMP
+    - FFmpeg
+      - [x] h265 hevc_vaapi RTMP
 - [ ] AMD GPU (likely to just work)
 - [ ] NVIDIA GPU (might just work)
 - [ ] AMD iGPU
 - [ ] Anything other than x86_64
 
+
+# Docker details
+The images available on [DockerHub](https://hub.docker.com/r/pannal/obs-hw-offload/tags) come in three different versions:
+
+| Image      | Tags                                | FFmpeg NDI | GST NDI | Codecs | Binaries |
+|-------------------|-------------------------------------|:----------:|:-------:|--------|------------|
+| small    | latest, latest-small, VERSION-small |    	✔️     |   	✔️   |  VAAPI, SRT, FDK-AAC, mfx/vpl | ffmpeg, ffprobe |
+| big      | latest-big, VERSION-big             |     ✔️     |   ✔️    |  VAAPI, AMF, CUVID, NVCC, CUDA, NVENC, SRT, FDK-AAC, mfx/vpl, AOM, ASS, Dav1d, mp3lame, openjpeg, OPUS, smbclient, SSH (SFTP), SVT-AV1, Theora, VMAF, Vorbis, VPX, WebP, x264, x265, VDPAU | ffmpeg, ffprobe, ffplay, aomdec, aomenc, vmaf, x264, x265 |
+| stock    | latest-stock, VERSION-stock         |     ❌      |   ✔️    | All FFmpeg packages in standard ubuntu build | ffmpeg, ffplay, ffprobe |
+This guide assumes you're using latest/small. If you need anything else, just replace `pannal/obs-hw-offload` with `pannal/obs-hw-offload:latest-big` in all commands, for example.
+
+### Available environment variables
+| Variable | Default | Description                                                                                                  |
+|----------|---------|--------------------------------------------------------------------------------------------------------------|
+| `NVIDIA_VISIBLE_DEVICES` | "all" | See [here](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/docker-specialized.html) |
+| `NVIDIA_DRIVER_CAPABILITIES` | "compute,video,utility" | See [here](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/docker-specialized.html) 
+| `USE_AUTODISCOVERY` | false | Whether to start dbus and avahi-daemon to allow for NDI auto-discovery. Needs `--network=host`               |
+
 # Building
-`docker build . -t obs-hw-offload`
+You can modify the Dockerfile to your liking or build your own variant with other options.
+
+### Available build args
+
+| Arg              | Default | Values               | Description                                                                                                         |
+|------------------|---------|----------------------|---------------------------------------------------------------------------------------------------------------------|
+| `FF_BUILD` | small | small, big, stock    | build a specific image type                                                                                         |
+|`FF_BUILDOPTS` | "--disable-debug --disable-doc" | Any string           | build options for FFmpeg                                                                                            |
+|`FF_COMMIT` | 78c4d6c136e10222a0b0ddff639c836f295a9029 | Any git commit hash  | use specific [FFmpeg Git](https://github.com/FFmpeg/FFmpeg) hash to build FFmpeg from                               |
+|`GST_PLUGINS_COMMIT` | d5425c52251f3fc0c21a6d994f9e1e6b46670daf | Any git commit hash | use specific [gst-plugins-rs](https://gitlab.freedesktop.org/gstreamer/gst-plugins-rs) hash to build GStreamer from |                 
+|`INTEL_FF_LIB` | OneVPL | OneVPL, MSDK | Build specific Intel API for FFmpeg (OneVPL: gen12+, MSDK: gen8 ~ gen12(Rocket Lake))                               |
+|`COMPILE_CORES` | _empty_ | Any number | Specify the amount of CPU threads to use (default: all) when building |
+|`CUDA_NVCCFLAGS` | "-gencode arch=compute_75,code=sm_75 -O2" | Any valid CUDA build flags | see [here](https://arnon.dk/matching-sm-architectures-arch-and-gencode-for-various-nvidia-cards/)
+|`FF_FFPLAY_PKG_ADD`| "libsdl2-dev" | _empty_ or "libsdl2-dev" | Set empty to not build ffplay |
+|`WITH_CUDA` | _empty_ | _empty_ or true | Include nvidia-cuda-toolkit in the final docker image |
+
+
+### Build an image
+`docker build --build-arg FF_BUILD=small . -t obs-hw-offload`
 
 
 # Changelog
 * 0.1.4:
   * Optimizations
+  * Add FDK-AAC to small build and use it in the guide by default
 * 0.1.3:
   * Add Quicksync capabilities to FFmpeg
 * 0.1.2:
