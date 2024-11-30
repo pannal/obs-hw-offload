@@ -1,4 +1,4 @@
-ARG VERSION=0.1.3
+ARG VERSION=0.1.4
 
 # can be "stock" for ffmpeg from the package manager; "small" to build ffmpeg with VAAPI and NDI support;
 # "big" for a more complete ffmpeg build
@@ -19,7 +19,7 @@ ARG COMPILE_CORES
 
 
 # build the gstreamer ndi plugin
-FROM ubuntu:24.10 AS builder
+FROM ubuntu:24.10 AS gstpluginbuilder
 ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL="sparse"
 ARG GST_PLUGINS_COMMIT
 
@@ -36,7 +36,7 @@ RUN cd /opt && \
     mkdir gst-plugins-rs-dev && \
     tar -xjvf gst-plugins-rs-${GST_PLUGINS_COMMIT}.tar.bz2 --strip-components=1 -C gst-plugins-rs-dev/ gst-plugins-rs-${GST_PLUGINS_COMMIT} && \
     cd gst-plugins-rs-dev && \
-    cargo build -j${COMPILE_CORES:-$(nproc)} -p gst-plugin-ndi --release
+    CARGO_TARGET_DIR=$HOME/lib cargo build -j${COMPILE_CORES:-$(nproc)} -p gst-plugin-ndi --release
 
 
 # prepare ffmpeg builds
@@ -90,7 +90,7 @@ RUN apt-get update && apt-get -y install --no-install-recommends software-proper
     libdrm-dev \
     libfreetype6-dev \
     libgnutls28-dev \
-    $([[ "${INTEL_FF_LIB}" = "MSDK" ]] && echo "libmfx-dev" || echo "libvpl-dev") \
+    $([ "${INTEL_FF_LIB}" = "MSDK" ] && echo "libmfx-dev" || echo "libvpl-dev") \
     libmp3lame-dev \
     libtool \
     libssl-dev \
@@ -118,19 +118,20 @@ RUN cd ~/ffmpeg_sources && \
     make install
 
 # --enable-vaapi is redundant if the correct dependencies are detected
-RUN mkdir ~/bin &&  \
+RUN mkdir $HOME/bin &&  \
     cd ~/ffmpeg_sources/FFmpeg && \
     PATH="$HOME/bin:$PATH" PKG_CONFIG_PATH="$HOME/ffmpeg_build/lib/pkgconfig" ./configure \
       --prefix="$HOME/ffmpeg_build" \
       --pkg-config-flags="--static" \
-      --extra-cflags="-I$HOME/ffmpeg_build/include" \
+      --extra-cflags="-I$HOME/ffmpeg_build/include -O3 -march=native -mtune=native" \
+      --extra-cxxflags="-O3 -march=native -mtune=native" \
       --extra-ldflags="-L$HOME/ffmpeg_build/lib" \
       --extra-libs="-lpthread -lm" \
       --extra-version="`echo ${FF_COMMIT} | cut -c 1-7`-oho-${VERSION}" \
       --ld="g++" \
       --bindir="$HOME/bin" \
       ${FF_BUILDOPTS} \
-      $([[ "${INTEL_FF_LIB}" = "MSDK" ]] && echo "--enable-libmfx" || echo "--enable-libvpl") \
+      $([ "${INTEL_FF_LIB}" = "MSDK" ] && echo "--enable-libmfx" || echo "--enable-libvpl") \
       --enable-libndi_newtek \
       --enable-libsrt \
       --enable-vaapi \
@@ -175,7 +176,7 @@ RUN apt-get update && apt-get -y install --no-install-recommends software-proper
     libdrm-dev \
     libfreetype6-dev \
     libgnutls28-dev \
-    $([[ "${INTEL_FF_LIB}" = "MSDK" ]] && echo "libmfx-dev" || echo "libvpl-dev") \
+    $([ "${INTEL_FF_LIB}" = "MSDK" ] && echo "libmfx-dev" || echo "libvpl-dev") \
     libmp3lame-dev \
     libnuma-dev \
     libopenjp2-7 \
@@ -335,7 +336,8 @@ RUN cd ~/ffmpeg_sources/FFmpeg && \
     PATH="$HOME/bin:$PATH:/usr/lib/nvidia-cuda-toolkit/bin" PKG_CONFIG_PATH="$HOME/ffmpeg_build/lib/pkgconfig" ./configure \
       --prefix="$HOME/ffmpeg_build" \
       --pkg-config-flags="--static" \
-      --extra-cflags="-I$HOME/ffmpeg_build/include" \
+      --extra-cflags="-I$HOME/ffmpeg_build/include -O3 -march=native -mtune=native" \
+      --extra-cxxflags="-O3 -march=native -mtune=native" \
       --extra-ldflags="-L$HOME/ffmpeg_build/lib" \
       --extra-libs="-lpthread -lm" \
       --extra-version="$(echo ${FF_COMMIT} | cut -c 1-7)-oho-${VERSION}" \
@@ -354,7 +356,7 @@ RUN cd ~/ffmpeg_sources/FFmpeg && \
       --enable-libdav1d \
       --enable-libfdk-aac \
       --enable-libfreetype \
-      $([[ "${INTEL_FF_LIB}" = "MSDK" ]] && echo "--enable-libmfx" || echo "--enable-libvpl") \
+      $([ "${INTEL_FF_LIB}" = "MSDK" ] && echo "--enable-libmfx" || echo "--enable-libvpl") \
       --enable-libmp3lame \
       --enable-libopenjpeg \
       --enable-libopus \
@@ -389,14 +391,13 @@ FROM ffbuilder-${FF_BUILD} as ff
 
 # run
 FROM ubuntu:24.10 AS runner
-COPY --from=builder /opt/gst-plugins-rs-dev/target/release/*.so /opt/gst-plugins-rs/
+COPY --from=gstpluginbuilder /root/lib/release/*.so /opt/gst-plugins-rs/
 COPY --from=ff /root/bin /usr/local/bin
 
 WORKDIR /app
 COPY . /app
 
 ARG DEBIAN_FRONTEND="noninteractive"
-SHELL ["/bin/bash", "-c"]
 ENV NVIDIA_VISIBLE_DEVICES="all"
 ENV NVIDIA_DRIVER_CAPABILITIES="compute,video,utility"
 ENV GST_PLUGIN_PATH="/opt/gst-plugins-rs"
@@ -431,9 +432,9 @@ RUN apt-get -y install \
     gstreamer1.0-vaapi \
     gstreamer1.0-plugins-base-apps \
     gstreamer1.0-libav \
-    $([[ "${FF_BUILD}" = "stock" ]] && echo "ffmpeg") \
-    $([[ "${WITH_CUDA}" = "true" ]] && echo "nvidia-cuda-toolkit") \
-    $([[ "${FF_BUILD}" = "big" ]] && echo "libsmbclient-dev")
+    $([ "${FF_BUILD}" = "stock" ] && echo "ffmpeg") \
+    $([ "${WITH_CUDA}" = "true" ] && echo "nvidia-cuda-toolkit") \
+    $([ "${FF_BUILD}" = "big" ] && echo "libsmbclient-dev")
 
 # LibNDI
 # alternatively, get the release .deb from https://github.com/DistroAV/DistroAV/releases
