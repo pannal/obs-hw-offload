@@ -76,7 +76,7 @@ ARG FF_COMMIT
 ARG VERSION
 ARG INTEL_FF_LIB
 
-RUN apt-get update && apt-get -y install software-properties-common && \
+RUN apt-get update && apt-get -y install --no-install-recommends software-properties-common && \
     add-apt-repository -y ppa:kobuk-team/intel-graphics && \
     apt-get -y install \
     autoconf \
@@ -158,7 +158,7 @@ ARG COMPILE_CORES
 ARG CUDA_NVCCFLAGS="-gencode arch=compute_75,code=sm_75 -O2"
 ARG INTEL_FF_LIB
 
-RUN apt-get update && apt-get -y install software-properties-common && \
+RUN apt-get update && apt-get -y install --no-install-recommends software-properties-common && \
     add-apt-repository -y ppa:kobuk-team/intel-graphics && \
     apt-get -y install \
     autoconf \
