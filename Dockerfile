@@ -1,4 +1,4 @@
-ARG VERSION=0.1.4b
+ARG VERSION=0.1.4c
 
 # can be "stock" for ffmpeg from the package manager; "small" to build ffmpeg with VAAPI and NDI support;
 # "big" for a more complete ffmpeg build
@@ -42,8 +42,8 @@ RUN cd /opt && \
 # prepare ffmpeg builds
 FROM ubuntu:24.10 AS ffbuildbase
 ARG FF_COMMIT
-RUN apt-get update && apt-get -y install git curl && \
-    apt-get -y install --no-install-recommends dpkg-dev
+ARG TARGETARCH
+RUN apt-get update && apt-get -y install git curl
 
 RUN mkdir -p ~/ffmpeg_sources &&  \
     cd ~/ffmpeg_sources && \
@@ -61,9 +61,8 @@ RUN curl -O --output-dir /tmp https://raw.githubusercontent.com/DistroAV/DistroA
     bash /tmp/libndi-get.sh nocleanup && \
     mkdir $HOME/ffmpeg_build && \
     mv `find /tmp -name ndidisk* -type d  | sed 1q` /tmp/ndidisk && \
-    cp -rP /tmp/ndidisk/ndisdk/include $HOME/ffmpeg_build && \
-    ln -s /tmp/ndidisk/ndisdk/lib/aarch64-rpi4-linux-gnueabi /tmp/ndidisk/ndisdk/lib/aarch64-linux-gnu && \
-    cp -rP /tmp/ndidisk/ndisdk/lib/$(dpkg-architecture -q DEB_HOST_MULTIARCH) $HOME/ffmpeg_build/lib
+    cp -r /tmp/ndidisk/ndisdk/include $HOME/ffmpeg_build && \
+    cp -r /tmp/ndidisk/ndisdk/lib/$([ "${TARGETARCH}" = "arm64" ] && echo "aarch64-rpi4-linux-gnueabi" || echo "x86_64-linux-gnu") $HOME/ffmpeg_build/lib
 
 
 # build ffmpeg-small
@@ -77,6 +76,7 @@ ARG COMPILE_CORES
 ARG FF_COMMIT
 ARG VERSION
 ARG INTEL_FF_LIB
+ARG TARGETARCH
 
 RUN apt-get update && apt-get -y install --no-install-recommends software-properties-common && \
     add-apt-repository -y ppa:kobuk-team/intel-graphics && \
@@ -92,7 +92,9 @@ RUN apt-get update && apt-get -y install --no-install-recommends software-proper
     libdrm-dev \
     libfreetype6-dev \
     libgnutls28-dev \
-    $([ "$(dpkg-architecture -q DEB_HOST_MULTIARCH)" != "aarch64-linux-gnu" ] && [ "${INTEL_FF_LIB}" = "MSDK" ] && echo "libmfx-dev" || echo "libvpl-dev") \
+    $(if [ "${TARGETARCH}" != "arm64" ]; then \
+        if [ "${INTEL_FF_LIB}" = "MSDK" ]; then echo "libmfx-dev"; else echo "libvpl-dev"; fi; \
+    fi) \
     libmp3lame-dev \
     libtool \
     libssl-dev \
@@ -142,7 +144,9 @@ RUN mkdir $HOME/bin &&  \
       --ld="g++" \
       --bindir="$HOME/bin" \
       ${FF_BUILDOPTS} \
-      $([ "$(dpkg-architecture -q DEB_HOST_MULTIARCH)" != "aarch64-linux-gnu" ] && [ "${INTEL_FF_LIB}" = "MSDK" ] && echo "--enable-libmfx" || echo "--enable-libvpl") \
+      $(if [ "$TARGETARCH" != "arm64" ]; then \
+          if [ "${INTEL_FF_LIB}" = "MSDK" ]; then echo "--enable-libmfx"; else echo "--enable-libvpl"; fi; \
+      fi) \
       --enable-libfdk-aac \
       --enable-libndi_newtek \
       --enable-libsrt \
@@ -170,6 +174,7 @@ ARG COMPILE_CORES
 # see https://arnon.dk/matching-sm-architectures-arch-and-gencode-for-various-nvidia-cards/
 ARG CUDA_NVCCFLAGS="-gencode arch=compute_75,code=sm_75 -O2"
 ARG INTEL_FF_LIB
+ARG TARGETARCH
 
 RUN apt-get update && apt-get -y install --no-install-recommends software-properties-common && \
     add-apt-repository -y ppa:kobuk-team/intel-graphics && \
@@ -188,7 +193,9 @@ RUN apt-get update && apt-get -y install --no-install-recommends software-proper
     libdrm-dev \
     libfreetype6-dev \
     libgnutls28-dev \
-    $([ "$(dpkg-architecture -q DEB_HOST_MULTIARCH)" != "aarch64-linux-gnu" ] && [ "${INTEL_FF_LIB}" = "MSDK" ] && echo "libmfx-dev" || echo "libvpl-dev") \
+    $(if [ "${TARGETARCH}" != "arm64" ]; then \
+        if [ "${INTEL_FF_LIB}" = "MSDK" ]; then echo "libmfx1 libmfx-dev"; else echo "libvpl2 libvpl-dev"; fi; \
+    fi) \
     libmp3lame-dev \
     libnuma-dev \
     libopenjp2-7 \
@@ -368,7 +375,9 @@ RUN cd ~/ffmpeg_sources/FFmpeg && \
       --enable-libdav1d \
       --enable-libfdk-aac \
       --enable-libfreetype \
-      $([ "$(dpkg-architecture -q DEB_HOST_MULTIARCH)" != "aarch64-linux-gnu" ] && [ "${INTEL_FF_LIB}" = "MSDK" ] && echo "--enable-libmfx" || echo "--enable-libvpl") \
+      $(if [ "$TARGETARCH" != "arm64" ]; then \
+          if [ "${INTEL_FF_LIB}" = "MSDK" ]; then echo "--enable-libmfx"; else echo "--enable-libvpl"; fi; \
+      fi) \
       --enable-libmp3lame \
       --enable-libopenjpeg \
       --enable-libopus \
@@ -416,9 +425,9 @@ ENV GST_PLUGIN_PATH="/opt/gst-plugins-rs"
 ENV USE_AUTODISCOVERY=false
 ARG FF_BUILD
 ARG WITH_CUDA
+ARG TARGETARCH
 
 RUN apt-get update && apt-get -y install software-properties-common && \
-    apt-get -y install --no-install-recommends dpkg-dev && \
     add-apt-repository -y ppa:kobuk-team/intel-graphics
 
 RUN apt-get -y install \
@@ -453,7 +462,9 @@ RUN apt-get -y install \
 # alternatively, get the release .deb from https://github.com/DistroAV/DistroAV/releases
 RUN curl -O --output-dir /tmp https://raw.githubusercontent.com/DistroAV/DistroAV/6.0.0/CI/libndi-get.sh && \
     bash /tmp/libndi-get.sh install && \
-    [ "$(dpkg-architecture -q DEB_HOST_MULTIARCH)" = "aarch64-linux-gnu" ] && cp -P $LIBNDI_TMP/ndisdk/lib/aarch64-rpi4-linux-gnueabi/* /usr/local/lib/ || true
+    if [ "$TARGETARCH" = "arm64" ]; then \
+        cp -P $LIBNDI_TMP/ndisdk/lib/aarch64-rpi4-linux-gnueabi/* /usr/local/lib/; \
+    fi
 
 RUN rm -rf /var/lib/apt/lists/*
 RUN chmod +x /app/container-startup.sh

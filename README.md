@@ -239,6 +239,7 @@ The images available on [DockerHub](https://hub.docker.com/r/pannal/obs-hw-offlo
 | small    | latest, latest-small, VERSION-small |    	✔️     |   	✔️   |  VAAPI, SRT, FDK-AAC, mfx/vpl | ffmpeg, ffprobe |
 | big      | latest-big, VERSION-big             |     ✔️     |   ✔️    |  VAAPI, AMF, CUVID, NVCC, CUDA, NVENC, SRT, FDK-AAC, mfx/vpl, AOM, ASS, Dav1d, mp3lame, openjpeg, OPUS, smbclient, SSH (SFTP), SVT-AV1, Theora, VMAF, Vorbis, VPX, WebP, x264, x265, VDPAU | ffmpeg, ffprobe, ffplay, aomdec, aomenc, vmaf, x264, x265 |
 | stock    | latest-stock, VERSION-stock         |     ❌      |   ✔️    | All FFmpeg packages in standard ubuntu build | ffmpeg, ffplay, ffprobe |
+
 This guide assumes you're using latest/small. If you need anything else, just replace `pannal/obs-hw-offload` with `pannal/obs-hw-offload:latest-big` in all commands, for example.
 
 ### Available environment variables
