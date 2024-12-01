@@ -1,4 +1,4 @@
-ARG VERSION=0.1.4
+ARG VERSION=0.1.4b
 
 # can be "stock" for ffmpeg from the package manager; "small" to build ffmpeg with VAAPI and NDI support;
 # "big" for a more complete ffmpeg build
@@ -60,8 +60,10 @@ RUN mkdir -p ~/ffmpeg_sources &&  \
 RUN curl -O --output-dir /tmp https://raw.githubusercontent.com/DistroAV/DistroAV/6.0.0/CI/libndi-get.sh && \
     bash /tmp/libndi-get.sh nocleanup && \
     mkdir $HOME/ffmpeg_build && \
-    cp -r `find /tmp -name ndidisk* -type d  | sed 1q`/ndisdk/include $HOME/ffmpeg_build && \
-    cp -r `find /tmp -name ndidisk* -type d  | sed 1q`/ndisdk/lib/$(dpkg-architecture -q DEB_HOST_MULTIARCH) $HOME/ffmpeg_build/lib
+    mv `find /tmp -name ndidisk* -type d  | sed 1q` /tmp/ndidisk && \
+    cp -rP /tmp/ndidisk/ndisdk/include $HOME/ffmpeg_build && \
+    ln -s /tmp/ndidisk/ndisdk/lib/aarch64-rpi4-linux-gnueabi /tmp/ndidisk/ndisdk/lib/aarch64-linux-gnu && \
+    cp -rP /tmp/ndidisk/ndisdk/lib/$(dpkg-architecture -q DEB_HOST_MULTIARCH) $HOME/ffmpeg_build/lib
 
 
 # build ffmpeg-small
@@ -90,7 +92,7 @@ RUN apt-get update && apt-get -y install --no-install-recommends software-proper
     libdrm-dev \
     libfreetype6-dev \
     libgnutls28-dev \
-    $([ "${INTEL_FF_LIB}" = "MSDK" ] && echo "libmfx-dev" || echo "libvpl-dev") \
+    $([ "$(dpkg-architecture -q DEB_HOST_MULTIARCH)" != "aarch64-linux-gnu" ] && [ "${INTEL_FF_LIB}" = "MSDK" ] && echo "libmfx-dev" || echo "libvpl-dev") \
     libmp3lame-dev \
     libtool \
     libssl-dev \
@@ -132,15 +134,15 @@ RUN mkdir $HOME/bin &&  \
     PATH="$HOME/bin:$PATH" PKG_CONFIG_PATH="$HOME/ffmpeg_build/lib/pkgconfig" ./configure \
       --prefix="$HOME/ffmpeg_build" \
       --pkg-config-flags="--static" \
-      --extra-cflags="-I$HOME/ffmpeg_build/include -O3 -march=native -mtune=native" \
-      --extra-cxxflags="-O3 -march=native -mtune=native" \
+      --extra-cflags="-I$HOME/ffmpeg_build/include -O2 -march=native -mtune=native" \
+      --extra-cxxflags="-O2 -march=native -mtune=native" \
       --extra-ldflags="-L$HOME/ffmpeg_build/lib" \
       --extra-libs="-lpthread -lm" \
       --extra-version="`echo ${FF_COMMIT} | cut -c 1-7`-oho-${VERSION}" \
       --ld="g++" \
       --bindir="$HOME/bin" \
       ${FF_BUILDOPTS} \
-      $([ "${INTEL_FF_LIB}" = "MSDK" ] && echo "--enable-libmfx" || echo "--enable-libvpl") \
+      $([ "$(dpkg-architecture -q DEB_HOST_MULTIARCH)" != "aarch64-linux-gnu" ] && [ "${INTEL_FF_LIB}" = "MSDK" ] && echo "--enable-libmfx" || echo "--enable-libvpl") \
       --enable-libfdk-aac \
       --enable-libndi_newtek \
       --enable-libsrt \
@@ -186,7 +188,7 @@ RUN apt-get update && apt-get -y install --no-install-recommends software-proper
     libdrm-dev \
     libfreetype6-dev \
     libgnutls28-dev \
-    $([ "${INTEL_FF_LIB}" = "MSDK" ] && echo "libmfx-dev" || echo "libvpl-dev") \
+    $([ "$(dpkg-architecture -q DEB_HOST_MULTIARCH)" != "aarch64-linux-gnu" ] && [ "${INTEL_FF_LIB}" = "MSDK" ] && echo "libmfx-dev" || echo "libvpl-dev") \
     libmp3lame-dev \
     libnuma-dev \
     libopenjp2-7 \
@@ -346,8 +348,8 @@ RUN cd ~/ffmpeg_sources/FFmpeg && \
     PATH="$HOME/bin:$PATH:/usr/lib/nvidia-cuda-toolkit/bin" PKG_CONFIG_PATH="$HOME/ffmpeg_build/lib/pkgconfig" ./configure \
       --prefix="$HOME/ffmpeg_build" \
       --pkg-config-flags="--static" \
-      --extra-cflags="-I$HOME/ffmpeg_build/include -O3 -march=native -mtune=native" \
-      --extra-cxxflags="-O3 -march=native -mtune=native" \
+      --extra-cflags="-I$HOME/ffmpeg_build/include -O2 -march=native -mtune=native" \
+      --extra-cxxflags="-O2 -march=native -mtune=native" \
       --extra-ldflags="-L$HOME/ffmpeg_build/lib" \
       --extra-libs="-lpthread -lm" \
       --extra-version="$(echo ${FF_COMMIT} | cut -c 1-7)-oho-${VERSION}" \
@@ -366,7 +368,7 @@ RUN cd ~/ffmpeg_sources/FFmpeg && \
       --enable-libdav1d \
       --enable-libfdk-aac \
       --enable-libfreetype \
-      $([ "${INTEL_FF_LIB}" = "MSDK" ] && echo "--enable-libmfx" || echo "--enable-libvpl") \
+      $([ "$(dpkg-architecture -q DEB_HOST_MULTIARCH)" != "aarch64-linux-gnu" ] && [ "${INTEL_FF_LIB}" = "MSDK" ] && echo "--enable-libmfx" || echo "--enable-libvpl") \
       --enable-libmp3lame \
       --enable-libopenjpeg \
       --enable-libopus \
@@ -416,6 +418,7 @@ ARG FF_BUILD
 ARG WITH_CUDA
 
 RUN apt-get update && apt-get -y install software-properties-common && \
+    apt-get -y install --no-install-recommends dpkg-dev && \
     add-apt-repository -y ppa:kobuk-team/intel-graphics
 
 RUN apt-get -y install \
@@ -449,7 +452,8 @@ RUN apt-get -y install \
 # LibNDI
 # alternatively, get the release .deb from https://github.com/DistroAV/DistroAV/releases
 RUN curl -O --output-dir /tmp https://raw.githubusercontent.com/DistroAV/DistroAV/6.0.0/CI/libndi-get.sh && \
-   bash /tmp/libndi-get.sh install
+    bash /tmp/libndi-get.sh install && \
+    [ "$(dpkg-architecture -q DEB_HOST_MULTIARCH)" = "aarch64-linux-gnu" ] && cp -P $LIBNDI_TMP/ndisdk/lib/aarch64-rpi4-linux-gnueabi/* /usr/local/lib/ || true
 
 RUN rm -rf /var/lib/apt/lists/*
 RUN chmod +x /app/container-startup.sh

@@ -269,6 +269,12 @@ You can modify the Dockerfile to your liking or build your own variant with othe
 ### Build an image
 `docker build --build-arg FF_BUILD=small . -t obs-hw-offload`
 
+# Updating
+###### Default image
+`docker pull pannal/obs-hw-offload`
+
+###### Other tags
+`docker pull pannal/obs-hw-offload:latest-big`
 
 # Changelog
 * 0.1.4:
