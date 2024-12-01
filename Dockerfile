@@ -136,8 +136,7 @@ RUN mkdir $HOME/bin &&  \
     PATH="$HOME/bin:$PATH" PKG_CONFIG_PATH="$HOME/ffmpeg_build/lib/pkgconfig" ./configure \
       --prefix="$HOME/ffmpeg_build" \
       --pkg-config-flags="--static" \
-      --extra-cflags="-I$HOME/ffmpeg_build/include -O2 -march=native -mtune=native" \
-      --extra-cxxflags="-O2 -march=native -mtune=native" \
+      --extra-cflags="-I$HOME/ffmpeg_build/include -march=native" \
       --extra-ldflags="-L$HOME/ffmpeg_build/lib" \
       --extra-libs="-lpthread -lm" \
       --extra-version="`echo ${FF_COMMIT} | cut -c 1-7`-oho-${VERSION}" \
@@ -355,8 +354,7 @@ RUN cd ~/ffmpeg_sources/FFmpeg && \
     PATH="$HOME/bin:$PATH:/usr/lib/nvidia-cuda-toolkit/bin" PKG_CONFIG_PATH="$HOME/ffmpeg_build/lib/pkgconfig" ./configure \
       --prefix="$HOME/ffmpeg_build" \
       --pkg-config-flags="--static" \
-      --extra-cflags="-I$HOME/ffmpeg_build/include -O2 -march=native -mtune=native" \
-      --extra-cxxflags="-O2 -march=native -mtune=native" \
+      --extra-cflags="-I$HOME/ffmpeg_build/include -march=native" \
       --extra-ldflags="-L$HOME/ffmpeg_build/lib" \
       --extra-libs="-lpthread -lm" \
       --extra-version="$(echo ${FF_COMMIT} | cut -c 1-7)-oho-${VERSION}" \
