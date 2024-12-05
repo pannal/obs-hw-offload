@@ -93,7 +93,7 @@ Run docker with `--network=host` and `--env USE_AUTODISCOVERY=true`
 ### First streaming test
 #### QVBR h265 original resolution, high quality, 14mbit (capped at 20mbit)
 ```
-docker run -it --rm --name obs-hw-offload --device /dev/dri/renderD128:/dev/dri/renderD128 pannal/obs-hw-offload \
+docker run -it --init --rm --name obs-hw-offload --device /dev/dri/renderD128:/dev/dri/renderD128 pannal/obs-hw-offload \
   ffmpeg -fflags nobuffer -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi \
    -f libndi_newtek -analyzeduration 5M -probesize 50M SOURCE \
    -vf 'format=nv12,hwupload' -c:v hevc_vaapi -maxrate 20M -b:v 14M -qp 20 -rc_mode QVBR -map 0:0 -map 0:1 -c:a libfdk_aac -b:a 128k \
@@ -102,10 +102,19 @@ docker run -it --rm --name obs-hw-offload --device /dev/dri/renderD128:/dev/dri/
 
 #### CBR h265 hw-scaled to 1080p, 8mbit, 192kbit AAC
 ```
-docker run -it --rm --name obs-hw-offload --device /dev/dri/renderD128:/dev/dri/renderD128 pannal/obs-hw-offload \
+docker run -it --init --rm --name obs-hw-offload --device /dev/dri/renderD128:/dev/dri/renderD128 pannal/obs-hw-offload \
   ffmpeg -fflags nobuffer -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi \
    -f libndi_newtek -analyzeduration 5M -probesize 50M SOURCE \
    -vf 'format=nv12,hwupload,scale_vaapi=w=1920:h=1080' -c:v hevc_vaapi -b:v 8M -rc_mode CBR -map 0:0 -map 0:1 -c:a libfdk_aac -b:a 192k \
+   -f flv TARGET
+```
+
+#### CBR h265 hw-scaled to 1080p, 8mbit, high quality VBR AAC
+```
+docker run -it --init --rm --name obs-hw-offload --device /dev/dri/renderD128:/dev/dri/renderD128 pannal/obs-hw-offload \
+  ffmpeg -fflags nobuffer -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -hwaccel_output_format vaapi \
+   -f libndi_newtek -analyzeduration 5M -probesize 50M SOURCE \
+   -vf 'format=nv12,hwupload,scale_vaapi=w=1920:h=1080' -c:v hevc_vaapi -b:v 8M -rc_mode CBR -map 0:0 -map 0:1 -c:a libfdk_aac -vbr 4 \
    -f flv TARGET
 ```
 
@@ -180,7 +189,7 @@ Replace `queue` with for example `queue max-size-time=500000000 max-size-buffers
 Prepend `gst-launch-1.0` with `GST_DEBUG=3 `
 
 ###### FFMPEG
-Add parameter `-loglevel debug` after `ffmpeg` command
+Add parameter `-loglevel debug` after `ffmpeg` command, or add `-v verbose` to the end of the pipeline for more verbose output, but not as much as `-loglevel debug`.
 
 
 ### List Encoders/Codecs
