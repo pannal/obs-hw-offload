@@ -6,7 +6,6 @@ usage() {
 Usage: $0 [options]
 
 Options:
-  -e, --env-file ENV_FILE       Specify an environment file (default: .env).
   -r, --restart                 Enable restart of FFmpeg if the stream goes down (default: false).
   -t, --timeout TIMEOUT         Set timeout (in seconds) after stopping FFmpeg before restarting (default: 30).
   -c, --check-interval INTERVAL Set check interval (in seconds) between each NDI stream check (default: 5).
@@ -14,11 +13,13 @@ Options:
   -n, --ndi-source SOURCE       Set the NDI source (mandatory).
   -v, --vaapi-device DEVICE     Set the VAAPI device path (default: /dev/dri/renderD128).
   -x, --extra-ips IPS           Specify extra IPs for the NDI stream (optional).
+  -e, --env-file ENV_FILE       Specify an environment file (default: .env).
+  -V, --verbose                 Set FFmpeg to verbose.
   -h, --help                    Display this help message.
 
-Note:
-You can also set these variables via an environment file, environment variables, or command-line arguments.
-Order of precedence: command-line arguments > environment variables > environment file.
+Environment Variables:
+  The same options can also be specified via environment variables or an environment file.
+  Order of precedence: command-line arguments > environment variables > environment file.
 EOL
 }
 
@@ -39,6 +40,7 @@ while [[ "$#" -gt 0 ]]; do
     -n|--ndi-source) NDI_SOURCE="$2"; shift 2 ;;
     -v|--vaapi-device) VAAPI_DEVICE="$2"; shift 2 ;;
     -x|--extra-ips) EXTRA_IPS="$2"; shift 2 ;;
+    -V|--verbose) FFMPEG_VERBOSITY="verbose"; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $1"; usage; exit 1 ;;
   esac
@@ -63,6 +65,7 @@ STREAM_TARGET="${STREAM_TARGET:-rtmp://domain:port/streamkey}"  # Optional
 DOCKER_IMAGE="${DOCKER_IMAGE:-pannal/obs-hw-offload}"
 CONTAINER_NAME="${CONTAINER_NAME:-obs-hw-offload}"
 CHECK_CONTAINER_NAME="${CHECK_CONTAINER_NAME:-obs-ndi-check}"
+FFMPEG_VERBOSITY="${FFMPEG_VERBOSITY:-info}"  # Default to "info"
 
 # Mandatory variable check
 if [ -z "$NDI_SOURCE" ]; then
@@ -98,7 +101,7 @@ else
         -map 0:1
         -c:a libfdk_aac
         -vbr 4
-        -v verbose
+        -v "$FFMPEG_VERBOSITY"  # Inject verbosity level dynamically
         -f flv "$STREAM_TARGET"
     )
 fi

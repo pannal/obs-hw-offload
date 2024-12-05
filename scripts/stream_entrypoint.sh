@@ -14,6 +14,7 @@ Options:
   -v, --vaapi-device DEVICE     Set the VAAPI device path (default: /dev/dri/renderD128).
   -x, --extra-ips IPS           Specify extra IPs for the NDI stream (optional).
   -e, --env-file ENV_FILE       Specify an environment file (default: .env).
+  -V, --verbose                 Set FFmpeg to verbose.
   -h, --help                    Display this help message.
 
 Environment Variables:
@@ -39,6 +40,7 @@ while [[ "$#" -gt 0 ]]; do
     -n|--ndi-source) NDI_SOURCE="$2"; shift 2 ;;
     -v|--vaapi-device) VAAPI_DEVICE="$2"; shift 2 ;;
     -x|--extra-ips) EXTRA_IPS="$2"; shift 2 ;;
+    -V|--verbose) FFMPEG_VERBOSITY="verbose"; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $1"; usage; exit 1 ;;
   esac
@@ -60,6 +62,7 @@ CHECK_INTERVAL="${CHECK_INTERVAL:-5}"  # Interval in seconds between NDI stream 
 VAAPI_DEVICE="${VAAPI_DEVICE:-/dev/dri/renderD128}"  # Default VAAPI device
 EXTRA_IPS="${EXTRA_IPS:-}"  # Optional
 STREAM_TARGET="${STREAM_TARGET:-rtmp://domain:port/streamkey}"  # Optional
+FFMPEG_VERBOSITY="${FFMPEG_VERBOSITY:-info}"
 
 # Mandatory variable check
 if [ -z "$NDI_SOURCE" ]; then
@@ -95,7 +98,7 @@ else
         -map 0:1
         -c:a libfdk_aac
         -vbr 4
-        -v verbose
+        -v "$FFMPEG_VERBOSITY"  # Inject verbosity level dynamically
         -f flv "$STREAM_TARGET"
     )
 fi
