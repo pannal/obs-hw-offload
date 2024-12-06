@@ -3,7 +3,10 @@
 set -o pipefail
 
 # Default values
-ENV_FILE=".env"
+DEFAULT_ENV_FILE=".env"
+ENV_FILE="$DEFAULT_ENV_FILE" # Default ENV_FILE path
+FFMPEG_INPUT_THREADS="${FFMPEG_INPUT_THREADS:-4}"
+FFMPEG_OUTPUT_THREADS="${FFMPEG_OUTPUT_THREADS:+"-threads $FFMPEG_OUTPUT_THREADS"}"
 FFMPEG_PARAMS="${FFMPEG_PARAMS:-""}"
 FFMPEG_VIDEO="${FFMPEG_VIDEO:-"-c:v hevc_vaapi -b:v 8M -rc_mode CBR"}"
 FFMPEG_AUDIO="${FFMPEG_AUDIO:-"-c:a libfdk_aac -b:a 128k"}"
@@ -45,14 +48,16 @@ Options:
   -d, --vaapi-device DEVICE     Specify VAAPI device (default: /dev/dri/renderD128).
   -s, --stream-target TARGET    Set the streaming target URL (default: rtmp://target:port/streamkey).
   -v, --verbose                 Set FFmpeg to verbose output.
-  --ffmpeg-params STRING        Full custom FFmpeg parameters (overrides all other FFmpeg settings).
+  --input-threads NUMBER        How many threads FFmpeg should use for ingesting the source (default: 4). Can also be set to 0 (zero) for all.
+  --output-threads NUMBER       How many threads FFmpeg should use for the output (default: all)
   --ffmpeg-video STRING         Specify video-related FFmpeg parameters (default: "-c:v hevc_vaapi -b:v 8M -rc_mode CBR").
   --ffmpeg-audio STRING         Specify audio-related FFmpeg parameters (default: "-c:a libfdk_aac -b:a 128k").
+  --ffmpeg-params STRING        Full custom FFmpeg parameters (overrides all other FFmpeg settings).
   --analyzeduration DURATION    Specify analyze duration for input (default: 5M).
   --probesize SIZE              Specify probe size for input (default: 50M).
   --check-interval SECONDS      Set the interval for checking the NDI stream while it's running (default: 5 seconds).
   --check-interval-down SECONDS Set the interval for checking the NDI stream while it's down (default: 30 seconds).
-  --no-monitoring               Disable monitoring of NDI streams and just runs FFmpeg.
+  --no-monitoring               Disable monitoring of NDI streams and just run FFmpeg.
   -r, --restart                 Enable automatic FFmpeg restart when the NDI stream is down.
   -e, --env-file FILE           Specify a custom environment file (default: .env).
   -h, --help                    Display this help message.
@@ -63,11 +68,34 @@ Environment Variables:
 EOL
 }
 
-# Load environment variables from the environment file, if it exists
+# Early processing of ENV_FILE from command-line arguments
+for arg in "$@"; do
+    case "$arg" in
+        -e|--env-file)
+            shift
+            ENV_FILE="$1"
+            shift
+            break
+            ;;
+        --env-file=*)
+            ENV_FILE="${arg#*=}"
+            shift
+            break
+            ;;
+    esac
+done
+
+# Load environment variables from the specified environment file, if it exists
 if [[ -f "$ENV_FILE" ]]; then
+    echo "Loading environment variables from $ENV_FILE"
     set -o allexport
     source "$ENV_FILE"
     set +o allexport
+else
+    if [[ "$ENV_FILE" != "$DEFAULT_ENV_FILE" ]]; then
+        echo "Error: Specified environment file $ENV_FILE not found."
+        exit 1
+    fi
 fi
 
 # Parse arguments
@@ -78,16 +106,18 @@ while [[ "$#" -gt 0 ]]; do
         -d|--vaapi-device) VAAPI_DEVICE="$2"; shift 2 ;;
         -s|--stream-target) STREAM_TARGET="$2"; shift 2 ;;
         -v|--verbose) VERBOSE_FLAG="verbose"; shift ;;
-        --ffmpeg-params) FFMPEG_PARAMS="$2"; shift 2 ;;
+        --input-threads) FFMPEG_INPUT_THREADS="$2"; shift 2 ;;
+        --output-threads) FFMPEG_OUTPUT_THREADS="-threads $2"; shift 2 ;;
         --ffmpeg-video) FFMPEG_VIDEO="$2"; shift 2 ;;
         --ffmpeg-audio) FFMPEG_AUDIO="$2"; shift 2 ;;
+        --ffmpeg-params) FFMPEG_PARAMS="$2"; shift 2 ;;
         --analyzeduration) FFMPEG_ANALYZE_DURATION="$2"; shift 2 ;;
         --probesize) FFMPEG_PROBE_SIZE="$2"; shift 2 ;;
         --check-interval) CHECK_INTERVAL="$2"; shift 2 ;;
         --check-interval-down) CHECK_INTERVAL_DOWN="$2"; shift 2 ;;
         --no-monitoring) NO_MONITORING="true"; shift ;;
-        -r|--restart) RESTART_FFMPEG=true; shift ;;
-        -e|--env-file) ENV_FILE="$2"; shift 2 ;;
+        -r|--restart) RESTART_FFMPEG="true"; shift ;;
+        -e|--env-file) shift ;; # Already processed early, skip
         -h|--help) usage; exit 0 ;;
         *) echo "Unknown option: $1"; usage; exit 1 ;;
     esac
@@ -152,15 +182,16 @@ run_ffmpeg() {
         ffmpeg "$FFMPEG_PARAMS" &
     else
         ffmpeg \
-            -fflags nobuffer -threads 4 \
+            -fflags nobuffer -threads "$FFMPEG_INPUT_THREADS" \
             -hwaccel vaapi -vaapi_device "$VAAPI_DEVICE" -hwaccel_output_format vaapi \
             -f libndi_newtek -analyzeduration "$FFMPEG_ANALYZE_DURATION" -probesize "$FFMPEG_PROBE_SIZE" \
             ${EXTRA_IPS:+-extra_ips "$EXTRA_IPS"} \
             -i "$NDI_SOURCE" \
+            $FFMPEG_OUTPUT_THREADS \
             -vf 'format=nv12,hwupload' \
             $FFMPEG_VIDEO \
             $FFMPEG_AUDIO \
-            -v "$VERBOSE_FLAG" \
+            -v $VERBOSE_FLAG \
             -f flv "$STREAM_TARGET" &
     fi
     FFMPEG_PID=$!
@@ -173,15 +204,16 @@ run_docker_ffmpeg() {
         ffmpeg_command="ffmpeg $FFMPEG_PARAMS"
     else
         ffmpeg_command="ffmpeg \
-            -fflags nobuffer -re -threads 4 \
+            -fflags nobuffer -threads \"$FFMPEG_INPUT_THREADS\" \
             -hwaccel vaapi -vaapi_device \"$VAAPI_DEVICE\" -hwaccel_output_format vaapi \
             -f libndi_newtek -analyzeduration \"$FFMPEG_ANALYZE_DURATION\" -probesize \"$FFMPEG_PROBE_SIZE\" \
             ${EXTRA_IPS:+-extra_ips \"$EXTRA_IPS\"} \
             -i \"$NDI_SOURCE\" \
+            $FFMPEG_OUTPUT_THREADS \
             -vf 'format=nv12,hwupload' \
             $FFMPEG_VIDEO \
             $FFMPEG_AUDIO \
-            -v \"$VERBOSE_FLAG\" \
+            -v $VERBOSE_FLAG \
             -f flv \"$STREAM_TARGET\""
     fi
 
