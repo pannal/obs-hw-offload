@@ -287,6 +287,10 @@ You can modify the Dockerfile to your liking or build your own variant with othe
 `docker pull pannal/obs-hw-offload:latest-big`
 
 # Changelog
+* 0.1.5:
+  * Update FFMPEG to the newest commit
+  * Update GStreamer-plugins-rs to the latest commit
+  * Add `stream.sh` (`stream` entrypoint); README update forthcoming
 * 0.1.4:
   * Optimizations
   * Add FDK-AAC to small build and use it in the guide by default
