@@ -3,8 +3,7 @@
 set -o pipefail
 
 # Default values
-DEFAULT_ENV_FILE=".env"
-ENV_FILE="$DEFAULT_ENV_FILE" # Default ENV_FILE path
+ENV_FILE="${ENV_FILE:-".env"}" # Default ENV_FILE path
 FFMPEG_INPUT_THREADS="${FFMPEG_INPUT_THREADS:-4}"
 FFMPEG_OUTPUT_THREADS="${FFMPEG_OUTPUT_THREADS:+"-threads $FFMPEG_OUTPUT_THREADS"}"
 FFMPEG_PARAMS="${FFMPEG_PARAMS:-""}"
@@ -64,11 +63,17 @@ Options:
 
 Environment Variables:
   The same options can also be specified via environment variables or an environment file.
-  Order of precedence: command-line arguments > environment variables > environment file.
+  Order of precedence: command-line arguments > environment file > environment variables.
+
+  Variables: ENV_FILE, FFMPEG_INPUT_THREADS, FFMPEG_OUTPUT_THREADS, FFMPEG_PARAMS, FFMPEG_VIDEO, FFMPEG_AUDIO,
+             FFMPEG_ANALYZE_DURATION, FFMPEG_PROBE_SIZE, NDI_SOURCE, EXTRA_IPS, VAAPI_DEVICE, STREAM_TARGET,
+             CHECK_INTERVAL, CHECK_INTERVAL_DOWN, VERBOSE_FLAG, RESTART_FFMPEG, NO_MONITORING, CONTAINER_NAME,
+             CHECK_CONTAINER_NAME, DOCKER_IMAGE
 EOL
 }
 
 # Early processing of ENV_FILE from command-line arguments
+# fixme: only works if first argument
 for arg in "$@"; do
     case "$arg" in
         -e|--env-file)
@@ -91,11 +96,6 @@ if [[ -f "$ENV_FILE" ]]; then
     set -o allexport
     source "$ENV_FILE"
     set +o allexport
-else
-    if [[ "$ENV_FILE" != "$DEFAULT_ENV_FILE" ]]; then
-        echo "Error: Specified environment file $ENV_FILE not found."
-        exit 1
-    fi
 fi
 
 # Parse arguments
@@ -165,7 +165,7 @@ kill_ffmpeg() {
     if [[ -n "$FFMPEG_PID" && "$(ps --pid "$FFMPEG_PID" > /dev/null 2>&1)" -eq 0 ]]; then
         if $RUNNING_IN_CONTAINER; then
             echo "Killing FFmpeg process (PID: $FFMPEG_PID)..."
-            kill "$FFMPEG_PID" >/dev/null 2>&1 || echo "No running FFmpeg process to stop."
+            kill -9 "$FFMPEG_PID" >/dev/null 2>&1 || echo "No running FFmpeg process to stop."
             wait "$FFMPEG_PID" 2>/dev/null
         else
             echo "Killing Docker container ($CONTAINER_NAME, $FFMPEG_PID)..."
@@ -233,9 +233,6 @@ start_ffmpeg() {
 }
 
 trap 'kill_ffmpeg; exit' SIGINT SIGTERM
-
-# Start FFmpeg and begin monitoring
-#start_ffmpeg
 
 if [[ "$NO_MONITORING" == "false" ]]; then
     monitor_ndi_stream

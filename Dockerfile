@@ -1,4 +1,4 @@
-ARG VERSION=0.1.4c
+ARG VERSION=0.1.5
 
 # can be "stock" for ffmpeg from the package manager; "small" to build ffmpeg with VAAPI and NDI support;
 # "big" for a more complete ffmpeg build
@@ -6,10 +6,10 @@ ARG FF_BUILD=small
 ARG FF_BUILDOPTS="--disable-debug --disable-doc"
 
 # the ffmpeg commit to use (the default one has been tested)
-ARG FF_COMMIT=78c4d6c136e10222a0b0ddff639c836f295a9029
+ARG FF_COMMIT=018ec4fe5f259253aad8736f9be29b3421a0d3e7
 
 # the gstreamer-plugins-rs commit to use (the default one has been tested)
-ARG GST_PLUGINS_COMMIT=d5425c52251f3fc0c21a6d994f9e1e6b46670daf
+ARG GST_PLUGINS_COMMIT=39a8db51de014b3f6690c734346c9199101d7ce1
 
 # non-VAAPI intel-specific API to use (OneVPL: gen12+, MSDK: gen8 ~ gen12(Rocket Lake))
 ARG INTEL_FF_LIB=OneVPL
@@ -465,6 +465,8 @@ RUN curl -O --output-dir /tmp https://raw.githubusercontent.com/DistroAV/DistroA
     fi
 
 RUN rm -rf /var/lib/apt/lists/*
-RUN chmod +x /app/container-startup.sh
+
+# prepare entrypoint and possible execute targets
+RUN chmod +x /app/container-startup.sh && chmod +x /app/stream.sh && ln -s /app/stream.sh /usr/local/bin/stream
 
 ENTRYPOINT ["/app/container-startup.sh"]
