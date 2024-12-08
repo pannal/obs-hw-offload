@@ -1,5 +1,5 @@
 #!/bin/bash
-SH_VERSION=0.0.2
+SH_VERSION=0.0.3
 echo "stream.sh, version ${SH_VERSION}"
 
 set -o pipefail
@@ -9,7 +9,8 @@ ENV_FILE="${ENV_FILE:-".env"}" # Default ENV_FILE path
 FFMPEG_INPUT_THREADS="${FFMPEG_INPUT_THREADS:-4}"
 FFMPEG_OUTPUT_THREADS="${FFMPEG_OUTPUT_THREADS:+"-threads $FFMPEG_OUTPUT_THREADS"}"
 FFMPEG_PARAMS="${FFMPEG_PARAMS:-""}"
-FFMPEG_VIDEO="${FFMPEG_VIDEO:-"-c:v hevc_vaapi -b:v 8M -rc_mode CBR"}"
+VIDEO_CODEC="${VIDEO_CODEC:-"hevc_vaapi"}"
+VIDEO_BITRATE="${VIDEO_BITRATE:-"8M"}"
 FFMPEG_AUDIO="${FFMPEG_AUDIO:-"-c:a libfdk_aac -b:a 128k"}"
 FFMPEG_ANALYZE_DURATION="${FFMPEG_ANALYZE_DURATION:-5M}"
 FFMPEG_PROBE_SIZE="${FFMPEG_PROBE_SIZE:-50M}"
@@ -49,6 +50,8 @@ Options:
   -d, --vaapi-device DEVICE     Specify VAAPI device (default: /dev/dri/renderD128).
   -s, --stream-target TARGET    Set the streaming target URL (default: rtmp://target:port/streamkey).
   -v, --verbose                 Set FFmpeg to verbose output.
+  -c, --video-codec STRING      Set video codec (default: hevc_vaapi).
+  -b, --video-bitrate STRING    Set video bitrate (default: 8M).
   --input-threads NUMBER        How many threads FFmpeg should use for ingesting the source (default: 4). Can also be set to 0 (zero) for all.
   --output-threads NUMBER       How many threads FFmpeg should use for the output (default: all)
   --ffmpeg-video STRING         Specify video-related FFmpeg parameters (default: "-c:v hevc_vaapi -b:v 8M -rc_mode CBR").
@@ -67,10 +70,10 @@ Environment Variables:
   The same options can also be specified via environment variables or an environment file.
   Order of precedence: command-line arguments > environment file > environment variables.
 
-  Variables: ENV_FILE, FFMPEG_INPUT_THREADS, FFMPEG_OUTPUT_THREADS, FFMPEG_PARAMS, FFMPEG_VIDEO, FFMPEG_AUDIO,
-             FFMPEG_ANALYZE_DURATION, FFMPEG_PROBE_SIZE, NDI_SOURCE, EXTRA_IPS, VAAPI_DEVICE, STREAM_TARGET,
-             CHECK_INTERVAL, CHECK_INTERVAL_DOWN, VERBOSE_FLAG, RESTART_FFMPEG, NO_MONITORING, CONTAINER_NAME,
-             CHECK_CONTAINER_NAME, DOCKER_IMAGE
+  Variables: ENV_FILE, FFMPEG_INPUT_THREADS, FFMPEG_OUTPUT_THREADS, FFMPEG_PARAMS, VIDEO_CODEC, VIDEO_BITRATE,
+             FFMPEG_VIDEO, FFMPEG_AUDIO, FFMPEG_ANALYZE_DURATION, FFMPEG_PROBE_SIZE, NDI_SOURCE, EXTRA_IPS,
+             VAAPI_DEVICE, STREAM_TARGET, CHECK_INTERVAL, CHECK_INTERVAL_DOWN, VERBOSE_FLAG, RESTART_FFMPEG,
+             NO_MONITORING, CONTAINER_NAME, CHECK_CONTAINER_NAME, DOCKER_IMAGE
 EOL
 }
 
@@ -108,6 +111,8 @@ while [[ "$#" -gt 0 ]]; do
         -d|--vaapi-device) VAAPI_DEVICE="$2"; shift 2 ;;
         -s|--stream-target) STREAM_TARGET="$2"; shift 2 ;;
         -v|--verbose) VERBOSE_FLAG="verbose"; shift ;;
+        -c|--video-codec) VIDEO_CODEC="$2"; shift 2 ;;
+        -b|--video-bitrate) VIDEO_BITRATE="$2"; shift 2 ;;
         --input-threads) FFMPEG_INPUT_THREADS="$2"; shift 2 ;;
         --output-threads) FFMPEG_OUTPUT_THREADS="-threads $2"; shift 2 ;;
         --ffmpeg-video) FFMPEG_VIDEO="$2"; shift 2 ;;
@@ -130,6 +135,11 @@ if [[ -z "$NDI_SOURCE" ]]; then
     echo "Error: NDI source is mandatory."
     usage
     exit 1
+fi
+
+# Construct FFMPEG_VIDEO dynamically
+if [[ -z "$FFMPEG_VIDEO" ]]; then
+    FFMPEG_VIDEO="-c:v ${VIDEO_CODEC} -b:v ${VIDEO_BITRATE} -rc_mode CBR"
 fi
 
 # Function to monitor the NDI stream
