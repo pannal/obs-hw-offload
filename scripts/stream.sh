@@ -1,5 +1,6 @@
 #!/bin/bash
-echo "stream.sh version $VERSION"
+SH_VERSION=0.0.2
+echo "stream.sh, version ${SH_VERSION}"
 
 set -o pipefail
 
