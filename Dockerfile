@@ -467,6 +467,7 @@ RUN curl -O --output-dir /tmp https://raw.githubusercontent.com/DistroAV/DistroA
 RUN rm -rf /var/lib/apt/lists/*
 
 # prepare entrypoint and possible execute targets
-RUN chmod +x /app/container-startup.sh && chmod +x /app/stream.sh && ln -s /app/stream.sh /usr/local/bin/stream
+RUN chmod +x /app/container-startup.sh && chmod +x /app/scripts/stream.sh &&  \
+    ln -s /app/scripts/stream.sh /usr/local/bin/stream
 
 ENTRYPOINT ["/app/container-startup.sh"]
