@@ -1,4 +1,4 @@
-ARG VERSION=0.1.5
+ARG VERSION=0.1.6
 
 # can be "stock" for ffmpeg from the package manager; "small" to build ffmpeg with VAAPI and NDI support;
 # "big" for a more complete ffmpeg build
@@ -6,7 +6,7 @@ ARG FF_BUILD=small
 ARG FF_BUILDOPTS="--disable-debug --disable-doc"
 
 # the ffmpeg commit to use (the default one has been tested)
-ARG FF_COMMIT=018ec4fe5f259253aad8736f9be29b3421a0d3e7
+ARG FF_COMMIT=c893dcce312af152f21a54874f88576ad279e722
 
 # the gstreamer-plugins-rs commit to use (the default one has been tested)
 ARG GST_PLUGINS_COMMIT=39a8db51de014b3f6690c734346c9199101d7ce1
@@ -424,6 +424,8 @@ ENV USE_AUTODISCOVERY=false
 ARG FF_BUILD
 ARG WITH_CUDA
 ARG TARGETARCH
+ARG VERSION
+ENV VERSION="${VERSION}"
 
 RUN apt-get update && apt-get -y install software-properties-common && \
     add-apt-repository -y ppa:kobuk-team/intel-graphics
