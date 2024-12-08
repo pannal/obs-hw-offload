@@ -1,4 +1,5 @@
 #!/bin/bash
+echo "stream.sh version $VERSION"
 
 set -o pipefail
 
