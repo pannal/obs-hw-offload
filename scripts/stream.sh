@@ -1,5 +1,5 @@
 #!/bin/bash
-SH_VERSION=0.0.4a
+SH_VERSION=0.0.4b
 echo "stream.sh, version ${SH_VERSION}"
 
 set -o pipefail
@@ -211,64 +211,46 @@ kill_ffmpeg() {
     fi
 }
 
-# Function to run FFmpeg directly
-run_ffmpeg() {
-    # Build the FFmpeg command
-    local ffmpeg_command
+build_ffmpeg_command() {
     if [[ -n "$FFMPEG_PARAMS" ]]; then
-        ffmpeg_command="ffmpeg $FFMPEG_PARAMS"
-    else
-        ffmpeg_command="ffmpeg \
-            -fflags nobuffer $FFMPEG_NATIVE_FRAMERATE -threads \"$FFMPEG_INPUT_THREADS\" \
-            -hwaccel vaapi -vaapi_device \"$VAAPI_DEVICE\" -hwaccel_output_format vaapi \
-            -f libndi_newtek -analyzeduration \"$FFMPEG_ANALYZE_DURATION\" -probesize \"$FFMPEG_PROBE_SIZE\" \
-            ${EXTRA_IPS:+-extra_ips \"$EXTRA_IPS\"} \
-            -i \"$NDI_SOURCE\" \
-            $FFMPEG_OUTPUT_THREADS \
-            -vf 'format=nv12,hwupload' \
-            $FFMPEG_VIDEO \
-            $FFMPEG_AUDIO \
-            -v $VERBOSE_FLAG \
-            -f flv \"$STREAM_TARGET\""
+        echo "ffmpeg $FFMPEG_PARAMS"
+        return
     fi
 
-    # Execute the command in foreground or background based on NO_MONITORING
+    local base_command="ffmpeg \
+        -fflags nobuffer $FFMPEG_NATIVE_FRAMERATE -threads \"$FFMPEG_INPUT_THREADS\" \
+        -hwaccel vaapi -vaapi_device \"$VAAPI_DEVICE\" -hwaccel_output_format vaapi \
+        -f libndi_newtek -analyzeduration \"$FFMPEG_ANALYZE_DURATION\" -probesize \"$FFMPEG_PROBE_SIZE\" \
+        ${EXTRA_IPS:+-extra_ips \"$EXTRA_IPS\"} \
+        -i \"$NDI_SOURCE\" \
+        $FFMPEG_OUTPUT_THREADS \
+        -vf 'format=nv12,hwupload' \
+        $FFMPEG_VIDEO \
+        $FFMPEG_AUDIO \
+        -v $VERBOSE_FLAG \
+        -f flv \"$STREAM_TARGET\""
+
+    echo "$base_command"
+}
+
+run_ffmpeg() {
+    local command=$(build_ffmpeg_command)
+
     if [[ "$NO_MONITORING" == "true" ]]; then
-        eval "$ffmpeg_command"
+        eval "$command"
     else
-        eval "$ffmpeg_command &"
+        eval "$command &"
         FFMPEG_PID=$!
     fi
 }
 
-
-# Function to run FFmpeg inside Docker
 run_docker_ffmpeg() {
-    # Build the FFmpeg command
-    local ffmpeg_command
-    if [[ -n "$FFMPEG_PARAMS" ]]; then
-        ffmpeg_command="ffmpeg $FFMPEG_PARAMS"
-    else
-        ffmpeg_command="ffmpeg \
-            -fflags nobuffer $FFMPEG_NATIVE_FRAMERATE -threads \"$FFMPEG_INPUT_THREADS\" \
-            -hwaccel vaapi -vaapi_device \"$VAAPI_DEVICE\" -hwaccel_output_format vaapi \
-            -f libndi_newtek -analyzeduration \"$FFMPEG_ANALYZE_DURATION\" -probesize \"$FFMPEG_PROBE_SIZE\" \
-            ${EXTRA_IPS:+-extra_ips \"$EXTRA_IPS\"} \
-            -i \"$NDI_SOURCE\" \
-            $FFMPEG_OUTPUT_THREADS \
-            -vf 'format=nv12,hwupload' \
-            $FFMPEG_VIDEO \
-            $FFMPEG_AUDIO \
-            -v $VERBOSE_FLAG \
-            -f flv \"$STREAM_TARGET\""
-    fi
+    local ffmpeg_command=$(build_ffmpeg_command)
 
-    # Build the Docker command
     local docker_command=("docker" "run" "--tty" "--init" "--rm" "--name" "$CONTAINER_NAME"
         "--device" "$VAAPI_DEVICE:$VAAPI_DEVICE"
         "$DOCKER_IMAGE" "bash" "-c" "$ffmpeg_command")
 
-    # Execute the command in foreground or background based on NO_MONITORING
     if [[ "$NO_MONITORING" == "true" ]]; then
         "${docker_command[@]}"
     else
