@@ -1,5 +1,5 @@
 #!/bin/bash
-SH_VERSION=0.0.4
+SH_VERSION=0.0.4a
 echo "stream.sh, version ${SH_VERSION}"
 
 set -o pipefail
@@ -39,6 +39,14 @@ else
     RUNNING_IN_CONTAINER=false
     FFPROBE_BASE=(docker run --rm --name "$CHECK_CONTAINER_NAME" "$DOCKER_IMAGE" ffprobe)
 fi
+
+# Enhanced logging function
+log() {
+    local level="${1^^}"
+    local message="$2"
+    local timestamp=$(date "+%Y-%m-%d %H:%M:%S")
+    echo "[${level}] ${timestamp}: ${message}" >&2
+}
 
 # Usage function
 usage() {
@@ -80,7 +88,6 @@ EOL
 }
 
 # Early processing of ENV_FILE from command-line arguments
-# fixme: only works if first argument
 for arg in "$@"; do
     case "$arg" in
         -e|--env-file)
@@ -97,13 +104,20 @@ for arg in "$@"; do
     esac
 done
 
-# Load environment variables from the specified environment file, if it exists
-if [[ -f "$ENV_FILE" ]]; then
-    echo "Loading environment variables from $ENV_FILE"
-    set -o allexport
-    source "$ENV_FILE"
-    set +o allexport
-fi
+# Create a function to load and validate configuration
+load_configuration() {
+    # Load environment file if exists
+    if [[ -f "$ENV_FILE" ]]; then
+        log "INFO" "Loading environment variables from $ENV_FILE"
+        set -o allexport
+        source "$ENV_FILE"
+        set +o allexport
+    fi
+
+    # Set default values with more explicit fallback
+    NDI_SOURCE="${NDI_SOURCE:?Error: NDI source must be set}"
+    STREAM_TARGET="${STREAM_TARGET:?Error: Stream target must be set}"
+}
 
 # Parse arguments
 while [[ "$#" -gt 0 ]]; do
@@ -129,16 +143,22 @@ while [[ "$#" -gt 0 ]]; do
         -r|--restart) RESTART_FFMPEG="true"; shift ;;
         -e|--env-file) shift ;; # Already processed early, skip
         -h|--help) usage; exit 0 ;;
-        *) echo "Unknown option: $1"; usage; exit 1 ;;
+        *) log "ERROR" "Unknown option: $1"; usage; exit 1 ;;
     esac
 done
 
-# Ensure NDI_SOURCE is set
-if [[ -z "$NDI_SOURCE" ]]; then
-    echo "Error: NDI source is mandatory."
-    usage
-    exit 1
-fi
+# Validate input parameters
+validate_inputs() {
+    # Check numeric inputs
+    [[ "$CHECK_INTERVAL" =~ ^[0-9]+$ ]] || {
+        log "ERROR" "Error: Check interval must be a non-negative integer" >&2
+        exit 1
+    }
+    [[ "$CHECK_INTERVAL_DOWN" =~ ^[0-9]+$ ]] || {
+        log "ERROR" "Error: Check interval down must be a non-negative integer" >&2
+        exit 1
+    }
+}
 
 # Construct FFMPEG_VIDEO dynamically
 if [[ -z "$FFMPEG_VIDEO" ]]; then
@@ -152,18 +172,18 @@ monitor_ndi_stream() {
             # invoke FFprobe
             "${FFPROBE_BASE[@]}" -f libndi_newtek ${EXTRA_IPS:+-extra_ips "$EXTRA_IPS"} -i "$NDI_SOURCE" >/dev/null 2>&1
             if [ $? -ne 0 ]; then
-                echo "NDI stream is down."
+                log "INFO" "NDI stream is down."
                 kill_ffmpeg
                 if [[ ! "$RESTART_FFMPEG" == "true" ]]; then
-                    echo "Not restarting FFmpeg."
+                    log "INFO" "Not restarting FFmpeg."
                     exit 0
                 fi
-                echo "Waiting for NDI stream"
+                log "INFO" "Waiting for NDI stream"
                 USE_CHECK_INTERVAL=${CHECK_INTERVAL_DOWN}
             else
                 # NDI stream is (still) up, run FFmpeg immediately if requested and not already running
                 if [[ -z "$FFMPEG_PID" || ( -n "$FFMPEG_PID" && "$(ps --pid "$FFMPEG_PID" > /dev/null 2>&1)" -ne 0 ) ]]; then
-                    echo "NDI stream is up, starting immediately."
+                    log "INFO" "NDI stream is up, starting immediately."
                     start_ffmpeg
                     USE_CHECK_INTERVAL=${CHECK_INTERVAL}
                 fi
@@ -179,12 +199,12 @@ monitor_ndi_stream() {
 kill_ffmpeg() {
     if [[ -n "$FFMPEG_PID" && "$(ps --pid "$FFMPEG_PID" > /dev/null 2>&1)" -eq 0 ]]; then
         if $RUNNING_IN_CONTAINER; then
-            echo "Killing FFmpeg process (PID: $FFMPEG_PID)..."
-            kill -9 "$FFMPEG_PID" >/dev/null 2>&1 || echo "No running FFmpeg process to stop."
+            log "INFO" "Killing FFmpeg process (PID: $FFMPEG_PID)..."
+            kill -9 "$FFMPEG_PID" >/dev/null 2>&1 || log "ERROR" "No running FFmpeg process to stop."
             wait "$FFMPEG_PID" 2>/dev/null
         else
-            echo "Killing Docker container ($CONTAINER_NAME, $FFMPEG_PID)..."
-            docker kill "$CONTAINER_NAME" >/dev/null 2>&1 || echo "No running container to stop."
+            log "INFO" "Killing Docker container ($CONTAINER_NAME, $FFMPEG_PID)..."
+            docker kill "$CONTAINER_NAME" >/dev/null 2>&1 || log "ERROR"  "No running container to stop."
             docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
         fi
         FFMPEG_PID=""
@@ -267,10 +287,23 @@ start_ffmpeg() {
     fi
 }
 
-trap 'kill_ffmpeg; exit' SIGINT SIGTERM
+main() {
+    # Load and validate configuration
+    load_configuration
 
-if [[ "$NO_MONITORING" == "false" ]]; then
-    monitor_ndi_stream
-else
-    start_ffmpeg
-fi
+    # Validate inputs
+    validate_inputs
+
+    # Set up signal handling
+    trap 'kill_ffmpeg; exit' SIGINT SIGTERM
+
+    # Run monitoring or direct startup
+    if [[ "$NO_MONITORING" == "false" ]]; then
+        monitor_ndi_stream
+    else
+        start_ffmpeg
+    fi
+}
+
+# Call main function with all arguments
+main "$@"
