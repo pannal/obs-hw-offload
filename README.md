@@ -90,7 +90,40 @@ Run docker with `--network=host` and `--env USE_AUTODISCOVERY=true`
 * Use `SOURCE` as `ndi-name="NDI_NAME"` with the NDI source name from the previous step
 </details>
 
-### First streaming test
+## Streaming
+### Stream wrapper on host, using Docker
+#### Prerequisite: Get current stream.sh
+```
+curl -o stream -sLJO "https://raw.githubusercontent.com/pannal/obs-hw-offload/refs/heads/master/scripts/stream.sh" >/dev/null 2>&1
+chmod +x stream
+./stream --help
+```
+
+#### CBR h265 hw-scaled to 1080p, 8mbit, 128kbit AAC, wait for and auto-retry/restart NDI source
+```
+./stream -n "NDI_NAME" -x "OBS_COMPUTER_IP" -s TARGET -r
+```
+
+#### CQP h265 native, quality based, 192kbit AAC
+```
+./stream -n "NDI_NAME" -x "OBS_COMPUTER_IP" --ffmpeg-audio "-c:a libfdk_aac -b:a 192k" --ffmpeg-video \
+  "-c:v hevc_vaapi -maxrate 24M -minrate 2M -rc_init_occupancy 90 -global_quality 23 -qmin 10 -qmax 51" -s TARGET
+```
+
+### Stream wrapper inside Docker
+<details><summary>Expand</summary>
+
+#### CBR h265 hw-scaled to 1080p, 8mbit, 128kbit AAC, wait for and auto-retry/restart NDI source
+```
+docker run -it --init --rm --name obs-hw-offload --device /dev/dri/renderD128:/dev/dri/renderD128 pannal/obs-hw-offload \
+  stream -n "NDI_NAME" -x "OBS_COMPUTER_IP" -s TARGET -r
+```
+
+</details>
+
+### Streaming using FFmpeg directly
+<details><summary>Expand</summary>
+
 #### QVBR h265 original resolution, high quality, 14mbit (capped at 20mbit)
 ```
 docker run -it --init --rm --name obs-hw-offload --device /dev/dri/renderD128:/dev/dri/renderD128 pannal/obs-hw-offload \
@@ -117,6 +150,8 @@ docker run -it --init --rm --name obs-hw-offload --device /dev/dri/renderD128:/d
    -vf 'format=nv12,hwupload,scale_vaapi=w=1920:h=1080' -c:v hevc_vaapi -b:v 8M -rc_mode CBR -map 0:0 -map 0:1 -c:a libfdk_aac -vbr 4 \
    -f flv TARGET
 ```
+
+</details>
 
 #### Further reading
 * [Available codecs/encoders](#list-encoderscodecs)
