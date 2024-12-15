@@ -1,5 +1,5 @@
 #!/bin/bash
-SH_VERSION=0.0.5
+SH_VERSION=0.0.5a
 echo "stream.sh, version ${SH_VERSION}"
 
 set -o pipefail
@@ -10,6 +10,7 @@ FFMPEG_INPUT_THREADS="${FFMPEG_INPUT_THREADS:-4}"
 FFMPEG_OUTPUT_THREADS="${FFMPEG_OUTPUT_THREADS:+"-threads $FFMPEG_OUTPUT_THREADS"}"
 FFMPEG_PARAMS="${FFMPEG_PARAMS:-""}"
 VIDEO_CODEC="${VIDEO_CODEC:-"hevc_vaapi"}"
+VIDEO_FORMAT="${VIDEO_FORMAT:-"format=nv12,hwupload"}"
 VIDEO_BITRATE="${VIDEO_BITRATE:-"8M"}"
 FFMPEG_NATIVE_FRAMERATE="${FFMPEG_NATIVE_FRAMERATE:-}"
 FFMPEG_AUDIO="${FFMPEG_AUDIO:-"-c:a libfdk_aac -b:a 128k"}"
@@ -64,6 +65,7 @@ Options:
   -v, --verbose                 Set FFmpeg to verbose output.
   -c, --video-codec STRING      Set video codec (default: hevc_vaapi).
   -b, --video-bitrate STRING    Set video bitrate (default: 8M).
+  -vf, --video-format STRING    Set video format (default: 'format=nv12,hwupload').
   -nf, --native-framerate       Read input at the native frame rate (set FFmpeg "-re" parameter).
   --input-threads NUMBER        How many threads FFmpeg should use for ingesting the source (default: 4). Can also be set to 0 (zero) for all.
   --output-threads NUMBER       How many threads FFmpeg should use for the output (default: all)
@@ -86,7 +88,7 @@ Environment Variables:
   The same options can also be specified via environment variables or an environment file.
   Order of precedence: command-line arguments > environment file > environment variables.
 
-  Variables: ENV_FILE, FFMPEG_INPUT_THREADS, FFMPEG_OUTPUT_THREADS, FFMPEG_PARAMS, VIDEO_CODEC, VIDEO_BITRATE,
+  Variables: ENV_FILE, FFMPEG_INPUT_THREADS, FFMPEG_OUTPUT_THREADS, FFMPEG_PARAMS, VIDEO_CODEC, VIDEO_BITRATE, VIDEO_FORMAT,
              FFMPEG_NATIVE_FRAMERATE, FFMPEG_VIDEO, FFMPEG_AUDIO, FFMPEG_ANALYZE_DURATION, FFMPEG_PROBE_SIZE, NDI_SOURCE,
              EXTRA_IPS, NDI_SOURCE_IP, NDI_SOURCE_PORT, NDI_CHECK_METHOD, VAAPI_DEVICE, STREAM_TARGET, CHECK_INTERVAL,
              CHECK_INTERVAL_DOWN, VERBOSE_FLAG, RETRY_STREAM, NO_MONITORING, CONTAINER_NAME, CHECK_CONTAINER_NAME,
@@ -136,6 +138,7 @@ while [[ "$#" -gt 0 ]]; do
         -v|--verbose) VERBOSE_FLAG="verbose"; shift ;;
         -c|--video-codec) VIDEO_CODEC="$2"; shift 2 ;;
         -b|--video-bitrate) VIDEO_BITRATE="$2"; shift 2 ;;
+        -vf|--video-format) VIDEO_FORMAT="$2"; shift 2 ;;
         -nf|--native-framerate) FFMPEG_NATIVE_FRAMERATE="-re"; shift ;;
         --input-threads) FFMPEG_INPUT_THREADS="$2"; shift 2 ;;
         --output-threads) FFMPEG_OUTPUT_THREADS="-threads $2"; shift 2 ;;
@@ -287,7 +290,7 @@ build_ffmpeg_command() {
         ${EXTRA_IPS:+-extra_ips \"$EXTRA_IPS\"} \
         -i \"$NDI_SOURCE\" \
         $FFMPEG_OUTPUT_THREADS \
-        -vf 'format=nv12,hwupload' \
+        -vf '$VIDEO_FORMAT' \
         $FFMPEG_VIDEO \
         $FFMPEG_AUDIO \
         -v $VERBOSE_FLAG \

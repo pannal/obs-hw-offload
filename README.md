@@ -101,13 +101,13 @@ chmod +x stream
 
 #### CBR h265 hw-scaled to 1080p, 8mbit, 128kbit AAC, wait for and auto-retry/restart NDI source
 ```
-./stream -n "NDI_NAME" -x "OBS_COMPUTER_IP" -s TARGET -r
+./stream -n "NDI_NAME" -x "OBS_COMPUTER_IP" -s TARGET -vf "format=nv12,hwupload,scale_vaapi=w=1920:h=1080" -r
 ```
 
-#### CQP h265 native, quality based, 192kbit AAC
+#### CQP h265 native resolution, native framerate, quality based, 192kbit AAC
 ```
 ./stream -n "NDI_NAME" -x "OBS_COMPUTER_IP" --ffmpeg-audio "-c:a libfdk_aac -b:a 192k" --ffmpeg-video \
-  "-c:v hevc_vaapi -maxrate 24M -minrate 2M -rc_init_occupancy 90 -global_quality 23 -qmin 10 -qmax 51" -s TARGET
+  "-c:v hevc_vaapi -maxrate 24M -minrate 2M -rc_init_occupancy 90 -global_quality 23 -qmin 10 -qmax 51" -s TARGET -nf
 ```
 
 ### Stream wrapper inside Docker
@@ -116,7 +116,7 @@ chmod +x stream
 #### CBR h265 hw-scaled to 1080p, 8mbit, 128kbit AAC, wait for and auto-retry/restart NDI source
 ```
 docker run -it --init --rm --name obs-hw-offload --device /dev/dri/renderD128:/dev/dri/renderD128 pannal/obs-hw-offload \
-  stream -n "NDI_NAME" -x "OBS_COMPUTER_IP" -s TARGET -r
+  stream -n "NDI_NAME" -x "OBS_COMPUTER_IP" -s TARGET -vf "format=nv12,hwupload,scale_vaapi=w=1920:h=1080" -r
 ```
 
 </details>
