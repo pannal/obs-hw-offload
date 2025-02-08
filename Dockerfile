@@ -319,7 +319,7 @@ RUN cd ~/ffmpeg_sources && \
 
 # build libsvtav1
 RUN cd ~/ffmpeg_sources && \
-    git -C SVT-AV1 pull 2> /dev/null || git clone https://gitlab.com/AOMediaCodec/SVT-AV1.git && \
+    git -C SVT-AV1 pull 2> /dev/null || git clone https://gitlab.com/AOMediaCodec/SVT-AV1.git && git -C SVT-AV1 checkout tags/v2.3.0 -b v2.3.0 && \
     mkdir -p SVT-AV1/build && \
     cd SVT-AV1/build && \
     PATH="$HOME/bin:$PATH" PKG_CONFIG_PATH="$HOME/ffmpeg_build/lib/pkgconfig" \
