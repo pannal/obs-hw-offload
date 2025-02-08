@@ -238,10 +238,10 @@ RUN apt-get update && apt-get -y install --no-install-recommends software-proper
 
 # get AMF headers
 RUN cd ~/ffmpeg_sources && \
-    wget -O amf.tar.gz https://github.com/GPUOpen-LibrariesAndSDKs/AMF/releases/download/v1.4.35/AMF-headers-v1.4.35.tar.gz && \
+    wget -O amf.tar.gz https://github.com/GPUOpen-LibrariesAndSDKs/AMF/releases/download/v1.4.36/AMF-headers-v1.4.36.tar.gz && \
     tar xvf amf.tar.gz && \
     mkdir $HOME/ffmpeg_build/include/AMF && \
-    cp -R amf-headers-v1.4.35/AMF/* $HOME/ffmpeg_build/include/AMF/
+    cp -R amf-headers-v1.4.36/AMF/* $HOME/ffmpeg_build/include/AMF/
 
 # build SRT
 RUN cd ~/ffmpeg_sources && \
