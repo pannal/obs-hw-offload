@@ -104,10 +104,16 @@ chmod +x stream
 ./stream -n "NDI_NAME" -x "OBS_COMPUTER_IP" -s TARGET -vf "format=nv12,hwupload,scale_vaapi=w=1920:h=1080" -r
 ```
 
-#### CQP h265 native resolution, native framerate, quality based, 192kbit AAC
+#### CQP h265 native resolution, native framerate, quality based, 192kbit AAC (potentially heavy on the GPU)
 ```
 ./stream -n "NDI_NAME" -x "OBS_COMPUTER_IP" --ffmpeg-audio "-c:a libfdk_aac -b:a 192k" --ffmpeg-video \
   "-c:v hevc_vaapi -maxrate 24M -minrate 2M -rc_init_occupancy 90 -global_quality 23 -qmin 10 -qmax 51" -s TARGET -nf
+```
+
+#### CQP h265 native resolution, framerate, quality based, 192kbit AAC, "just works" profile
+```
+./stream -n "NDI_NAME" -x "OBS_COMPUTER_IP" --ffmpeg-audio "-c:a libfdk_aac -b:a 192k" --ffmpeg-video \
+  "-c:v hevc_vaapi -qp 36 -maxrate:v 24M -bufsize 15M -g 120 -b:v 24M" -s TARGET -nf
 ```
 
 ### Stream wrapper inside Docker
