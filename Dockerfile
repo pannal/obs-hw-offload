@@ -1,4 +1,4 @@
-ARG VERSION=0.1.6b
+ARG VERSION=0.1.6c
 
 # can be "stock" for ffmpeg from the package manager; "small" to build ffmpeg with VAAPI and NDI support;
 # "big" for a more complete ffmpeg build
@@ -6,10 +6,10 @@ ARG FF_BUILD=small
 ARG FF_BUILDOPTS="--disable-debug --disable-doc"
 
 # the ffmpeg commit to use (the default one has been tested)
-ARG FF_COMMIT=43be8d07281caca2e88bfd8ee2333633e1fb1a13
+ARG FF_COMMIT=f641c6846ac419284ae73948b617a250b1a3c22d
 
 # the gstreamer-plugins-rs commit to use (the default one has been tested)
-ARG GST_PLUGINS_COMMIT=7e2a4cf61c07c1c052dcb4f0ba6c17b28355f768
+ARG GST_PLUGINS_COMMIT=ebcb8f220b3b5e681d781e04ff12df63d595977a
 
 # non-VAAPI intel-specific API to use (OneVPL: gen12+, MSDK: gen8 ~ gen12(Rocket Lake))
 ARG INTEL_FF_LIB=OneVPL
