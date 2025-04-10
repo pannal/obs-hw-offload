@@ -1,4 +1,4 @@
-ARG VERSION=0.1.6b
+ARG VERSION=0.1.6c
 
 # can be "stock" for ffmpeg from the package manager; "small" to build ffmpeg with VAAPI and NDI support;
 # "big" for a more complete ffmpeg build
@@ -6,7 +6,7 @@ ARG FF_BUILD=small
 ARG FF_BUILDOPTS="--disable-debug --disable-doc"
 
 # the ffmpeg commit to use (the default one has been tested)
-ARG FF_COMMIT=43be8d07281caca2e88bfd8ee2333633e1fb1a13
+ARG FF_COMMIT=48c0f071d4b5dd3c06c9978a2edc0fdcbbc3717a
 
 # the gstreamer-plugins-rs commit to use (the default one has been tested)
 ARG GST_PLUGINS_COMMIT=7e2a4cf61c07c1c052dcb4f0ba6c17b28355f768
@@ -43,7 +43,7 @@ RUN cd /opt && \
 FROM ubuntu:24.10 AS ffbuildbase
 ARG FF_COMMIT
 ARG TARGETARCH
-RUN apt-get update && apt-get -y install git curl
+RUN apt-get update && apt-get -y upgrade && apt-get -y install git curl
 
 RUN mkdir -p ~/ffmpeg_sources &&  \
     cd ~/ffmpeg_sources && \
@@ -78,7 +78,7 @@ ARG VERSION
 ARG INTEL_FF_LIB
 ARG TARGETARCH
 
-RUN apt-get update && apt-get -y install --no-install-recommends software-properties-common && \
+RUN apt-get update && apt-get -y upgrade && apt-get -y install --no-install-recommends software-properties-common && \
     add-apt-repository -y ppa:kobuk-team/intel-graphics && \
     apt-get -y install \
     autoconf \
@@ -175,7 +175,7 @@ ARG CUDA_NVCCFLAGS="-gencode arch=compute_75,code=sm_75 -O2"
 ARG INTEL_FF_LIB
 ARG TARGETARCH
 
-RUN apt-get update && apt-get -y install --no-install-recommends software-properties-common && \
+RUN apt-get update && apt-get -y upgrade && apt-get -y install --no-install-recommends software-properties-common && \
     add-apt-repository -y ppa:kobuk-team/intel-graphics && \
     apt-get -y install \
     autoconf \
@@ -427,7 +427,7 @@ ARG TARGETARCH
 ARG VERSION
 ENV VERSION="${VERSION}"
 
-RUN apt-get update && apt-get -y install software-properties-common && \
+RUN apt-get update && apt-get -y upgrade && apt-get -y install software-properties-common && \
     add-apt-repository -y ppa:kobuk-team/intel-graphics
 
 RUN apt-get -y install \
