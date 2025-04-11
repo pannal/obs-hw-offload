@@ -92,6 +92,7 @@ Run docker with `--network=host` and `--env USE_AUTODISCOVERY=true`
 
 ## Streaming
 ### Stream wrapper on host, using Docker
+_The stream wrapper (stream.sh) is a command line utility that tries to simplify the usage of this container and FFmpeg. It can either run from within the container or on the host machine, managing the container (recommended)._
 #### Prerequisite: Get current stream.sh
 ```
 curl -o stream -sLJO "https://raw.githubusercontent.com/pannal/obs-hw-offload/refs/heads/master/scripts/stream.sh" >/dev/null 2>&1
