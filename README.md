@@ -48,7 +48,7 @@ Either:
 * Enable Tools > DistroAV NDI Settings > Main Output
 * Hit OK
   * _don't_ Start Streaming (not necessary)
-  * _don't_ change OBS's color format or it will crash (and it won't work with NDI)
+  * _don't_ change OBS's color format or it will crash (and it won't work with NDI); on Linux you might need to use Rec. 601
 
 #### List NDI sources
 Replace `OBS_COMPUTER_IP` with the PC's IP running OBS DistroAV
