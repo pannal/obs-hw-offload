@@ -37,6 +37,14 @@ With DistroAV, which still uses NDI SpeedHQ, the following _local_ network bandw
 
 Ref: https://ndi.video/tech/formats/
 
+### Windows Caveats/Hints/Issues
+* Windows Firewall can sometimes break streams, either
+  * make sure your network is set as private 
+  * try and properly allow OBS, and/or
+  * disable Windows Firewall, and/or
+  * Install [WFC](https://www.binisoft.org/wfc) (might not work), [SimpleWall](https://www.simplewall.org/), or [TinyWall](https://tinywall.pados.hu/) 
+  * [Ref](https://github.com/pannal/obs-hw-offload/issues/3#issuecomment-2798274312)
+
 ## Installation
 Either:
 * [Build](#building) it yourself or
