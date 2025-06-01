@@ -1,5 +1,5 @@
 #!/bin/bash
-SH_VERSION=0.0.5a
+SH_VERSION=0.0.5b
 echo "stream.sh, version ${SH_VERSION}"
 
 set -o pipefail
@@ -13,6 +13,7 @@ VIDEO_CODEC="${VIDEO_CODEC:-"hevc_vaapi"}"
 VIDEO_FORMAT="${VIDEO_FORMAT:-"format=nv12,hwupload"}"
 VIDEO_BITRATE="${VIDEO_BITRATE:-"8M"}"
 FFMPEG_NATIVE_FRAMERATE="${FFMPEG_NATIVE_FRAMERATE:-}"
+FFMPEG_NOBUFFER="${FFMPEG_NOBUFFER:-}"
 FFMPEG_AUDIO="${FFMPEG_AUDIO:-"-c:a libfdk_aac -b:a 128k"}"
 FFMPEG_ANALYZE_DURATION="${FFMPEG_ANALYZE_DURATION:-5M}"
 FFMPEG_PROBE_SIZE="${FFMPEG_PROBE_SIZE:-50M}"
@@ -67,6 +68,7 @@ Options:
   -b, --video-bitrate STRING    Set video bitrate (default: 8M).
   -vf, --video-format STRING    Set video format (default: 'format=nv12,hwupload').
   -nf, --native-framerate       Read input at the native frame rate (set FFmpeg "-re" parameter).
+  -nb, --no-buffer              Set FFMPEG to nobuffer (set FFmpeg "-fflags nobuffer" parameter). Attention: Might lead to issues.
   --input-threads NUMBER        How many threads FFmpeg should use for ingesting the source (default: 4). Can also be set to 0 (zero) for all.
   --output-threads NUMBER       How many threads FFmpeg should use for the output (default: all)
   --ffmpeg-video STRING         Specify video-related FFmpeg parameters (default: "-c:v hevc_vaapi -b:v 8M -rc_mode CBR").
@@ -89,10 +91,10 @@ Environment Variables:
   Order of precedence: command-line arguments > environment file > environment variables.
 
   Variables: ENV_FILE, FFMPEG_INPUT_THREADS, FFMPEG_OUTPUT_THREADS, FFMPEG_PARAMS, VIDEO_CODEC, VIDEO_BITRATE, VIDEO_FORMAT,
-             FFMPEG_NATIVE_FRAMERATE, FFMPEG_VIDEO, FFMPEG_AUDIO, FFMPEG_ANALYZE_DURATION, FFMPEG_PROBE_SIZE, NDI_SOURCE,
-             EXTRA_IPS, NDI_SOURCE_IP, NDI_SOURCE_PORT, NDI_CHECK_METHOD, VAAPI_DEVICE, STREAM_TARGET, CHECK_INTERVAL,
-             CHECK_INTERVAL_DOWN, VERBOSE_FLAG, RETRY_STREAM, NO_MONITORING, CONTAINER_NAME, CHECK_CONTAINER_NAME,
-             DOCKER_IMAGE
+             FFMPEG_NATIVE_FRAMERATE, FFMPEG_NOBUFFER, FFMPEG_VIDEO, FFMPEG_AUDIO, FFMPEG_ANALYZE_DURATION, FFMPEG_PROBE_SIZE,
+             NDI_SOURCE, EXTRA_IPS, NDI_SOURCE_IP, NDI_SOURCE_PORT, NDI_CHECK_METHOD, VAAPI_DEVICE, STREAM_TARGET,
+             CHECK_INTERVAL, CHECK_INTERVAL_DOWN, VERBOSE_FLAG, RETRY_STREAM, NO_MONITORING, CONTAINER_NAME,
+             CHECK_CONTAINER_NAME, DOCKER_IMAGE
 EOL
 }
 
@@ -140,6 +142,7 @@ while [[ "$#" -gt 0 ]]; do
         -b|--video-bitrate) VIDEO_BITRATE="$2"; shift 2 ;;
         -vf|--video-format) VIDEO_FORMAT="$2"; shift 2 ;;
         -nf|--native-framerate) FFMPEG_NATIVE_FRAMERATE="-re"; shift ;;
+        -nb|--no-buffer) FFMPEG_NOBUFFER="-fflags nobuffer"; shift ;;
         --input-threads) FFMPEG_INPUT_THREADS="$2"; shift 2 ;;
         --output-threads) FFMPEG_OUTPUT_THREADS="-threads $2"; shift 2 ;;
         --ffmpeg-video) FFMPEG_VIDEO="$2"; shift 2 ;;
@@ -284,7 +287,7 @@ build_ffmpeg_command() {
     fi
 
     local base_command="ffmpeg \
-        -fflags nobuffer $FFMPEG_NATIVE_FRAMERATE -threads \"$FFMPEG_INPUT_THREADS\" \
+        $FFMPEG_NOBUFFER $FFMPEG_NATIVE_FRAMERATE -threads \"$FFMPEG_INPUT_THREADS\" \
         -hwaccel vaapi -vaapi_device \"$VAAPI_DEVICE\" -hwaccel_output_format vaapi \
         -f libndi_newtek -analyzeduration \"$FFMPEG_ANALYZE_DURATION\" -probesize \"$FFMPEG_PROBE_SIZE\" \
         ${EXTRA_IPS:+-extra_ips \"$EXTRA_IPS\"} \
