@@ -284,7 +284,11 @@ _In order to use anything other than h264 with GStreamer and RTMP, FFmpeg has to
       - [x] h265 vaapih264enc, RTMP
     - FFmpeg
       - [x] h265 hevc_vaapi RTMP
-- [ ] AMD GPU (likely to just work)
+- [x] AMD 6850U (GPU: integrated 680M)
+  - Pop!_OS host machine, OBS Studio 31.1.0, Linux x64 (SDK 6.1.1)
+    - FFmpeg
+      - [x] h265 hevc_vaapi RTMP
+      - [x] x264 h264_vaapi RTMP
 - [ ] NVIDIA GPU (might just work)
 - [ ] AMD iGPU
 - [ ] Anything other than x86_64
