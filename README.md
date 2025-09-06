@@ -341,6 +341,10 @@ You can modify the Dockerfile to your liking or build your own variant with othe
 `docker pull pannal/obs-hw-offload:latest-big`
 
 # Changelog
+* 0.1.7:
+  * Rebase FFMPEG on latest jellyfin build (7.1.1)
+* 0.1.6c: 
+  * Add AMD 6850U (GPU: integrated 680M)
 * 0.1.5:
   * Update FFMPEG to the newest commit
   * Update GStreamer-plugins-rs to the latest commit

@@ -1,12 +1,12 @@
-ARG VERSION=0.1.6c
+ARG VERSION=0.1.7
 
 # can be "stock" for ffmpeg from the package manager; "small" to build ffmpeg with VAAPI and NDI support;
 # "big" for a more complete ffmpeg build
 ARG FF_BUILD=small
 ARG FF_BUILDOPTS="--disable-debug --disable-doc"
 
-# the ffmpeg commit to use (the default one has been tested)
-ARG FF_COMMIT=48c0f071d4b5dd3c06c9978a2edc0fdcbbc3717a
+# the jellyfin-ffmpeg tag to use
+ARG FF_COMMIT=7.1.1-7
 
 # the gstreamer-plugins-rs commit to use (the default one has been tested)
 ARG GST_PLUGINS_COMMIT=7e2a4cf61c07c1c052dcb4f0ba6c17b28355f768
@@ -48,9 +48,9 @@ RUN apt-get update && apt-get -y upgrade && apt-get -y install git curl
 RUN mkdir -p ~/ffmpeg_sources &&  \
     cd ~/ffmpeg_sources && \
     git clone -b dev/7.0 --single-branch https://gitlab.fem-net.de/broadcast/ffmpeg-patches.git && \
-    curl -LJO https://github.com/FFmpeg/FFmpeg/archive/${FF_COMMIT}.tar.gz && \
+    curl -LJO https://github.com/jellyfin/jellyfin-ffmpeg/archive/refs/tags/v${FF_COMMIT}.tar.gz && \
     mkdir FFmpeg && \
-    tar -xvf FFmpeg-${FF_COMMIT}.tar.gz --strip-components=1 -C FFmpeg/ && \
+    tar -xvf jellyfin-ffmpeg-${FF_COMMIT}.tar.gz --strip-components=1 -C FFmpeg/ && \
     cd FFmpeg && \
     patch -p1 < ../ffmpeg-patches/decklink-use-device-numbers.patch && \
     patch -p1 < ../ffmpeg-patches/ndi-support.patch
@@ -139,7 +139,7 @@ RUN mkdir $HOME/bin &&  \
       --extra-cflags="-I$HOME/ffmpeg_build/include -march=native" \
       --extra-ldflags="-L$HOME/ffmpeg_build/lib" \
       --extra-libs="-lpthread -lm" \
-      --extra-version="`echo ${FF_COMMIT} | cut -c 1-7`-oho-${VERSION}" \
+      --extra-version="jellyfin-${FF_COMMIT}-oho-${VERSION}" \
       --ld="g++" \
       --bindir="$HOME/bin" \
       ${FF_BUILDOPTS} \
@@ -357,7 +357,7 @@ RUN cd ~/ffmpeg_sources/FFmpeg && \
       --extra-cflags="-I$HOME/ffmpeg_build/include -march=native" \
       --extra-ldflags="-L$HOME/ffmpeg_build/lib" \
       --extra-libs="-lpthread -lm" \
-      --extra-version="$(echo ${FF_COMMIT} | cut -c 1-7)-oho-${VERSION}" \
+      --extra-version="jellyfin-${FF_COMMIT}-oho-${VERSION}" \
       --ld="g++" \
       --bindir="$HOME/bin" \
       ${FF_BUILDOPTS} \
