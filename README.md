@@ -317,17 +317,17 @@ You can modify the Dockerfile to your liking or build your own variant with othe
 
 ### Available build args
 
-| Arg              | Default | Values               | Description                                                                                                         |
-|------------------|---------|----------------------|---------------------------------------------------------------------------------------------------------------------|
-| `FF_BUILD` | small | small, big, stock    | build a specific image type                                                                                         |
-|`FF_BUILDOPTS` | "--disable-debug --disable-doc" | Any string           | build options for FFmpeg                                                                                            |
-|`FF_COMMIT` | 78c4d6c136e10222a0b0ddff639c836f295a9029 | Any git commit hash  | use specific [FFmpeg Git](https://github.com/FFmpeg/FFmpeg) hash to build FFmpeg from                               |
-|`GST_PLUGINS_COMMIT` | d5425c52251f3fc0c21a6d994f9e1e6b46670daf | Any git commit hash | use specific [gst-plugins-rs](https://gitlab.freedesktop.org/gstreamer/gst-plugins-rs) hash to build GStreamer from |                 
-|`INTEL_FF_LIB` | OneVPL | OneVPL, MSDK | Build specific Intel API for FFmpeg (OneVPL: gen12+, MSDK: gen8 ~ gen12(Rocket Lake))                               |
-|`COMPILE_CORES` | _empty_ | Any number | Specify the amount of CPU threads to use (default: all) when building |
-|`CUDA_NVCCFLAGS` | "-gencode arch=compute_75,code=sm_75 -O2" | Any valid CUDA build flags | see [here](https://arnon.dk/matching-sm-architectures-arch-and-gencode-for-various-nvidia-cards/)
-|`FF_FFPLAY_PKG_ADD`| "libsdl2-dev" | _empty_ or "libsdl2-dev" | Set empty to not build ffplay |
-|`WITH_CUDA` | _empty_ | _empty_ or true | Include nvidia-cuda-toolkit in the final docker image |
+| Arg              | Default | Values                     | Description                                                                                                         |
+|------------------|---------|----------------------------|---------------------------------------------------------------------------------------------------------------------|
+| `FF_BUILD` | small | small, big, stock          | build a specific image type                                                                                         |
+|`FF_BUILDOPTS` | "--disable-debug --disable-doc" | Any string                 | build options for FFmpeg                                                                                            |
+|`FF_JFTAG` | 7.1.1-7 | Any git tag                | use specific [Jellyfin FFmpeg Git](https://github.com/jellyfin/jellyfin-ffmpeg) tag to build FFmpeg from                       |
+|`GST_PLUGINS_COMMIT` | d5425c52251f3fc0c21a6d994f9e1e6b46670daf | Any git commit hash        | use specific [gst-plugins-rs](https://gitlab.freedesktop.org/gstreamer/gst-plugins-rs) hash to build GStreamer from |                 
+|`INTEL_FF_LIB` | OneVPL | OneVPL, MSDK               | Build specific Intel API for FFmpeg (OneVPL: gen12+, MSDK: gen8 ~ gen12(Rocket Lake))                               |
+|`COMPILE_CORES` | _empty_ | Any number                 | Specify the amount of CPU threads to use (default: all) when building                                               |
+|`CUDA_NVCCFLAGS` | "-gencode arch=compute_75,code=sm_75 -O2" | Any valid CUDA build flags | see [here](https://arnon.dk/matching-sm-architectures-arch-and-gencode-for-various-nvidia-cards/)                   
+|`FF_FFPLAY_PKG_ADD`| "libsdl2-dev" | _empty_ or "libsdl2-dev"   | Set empty to not build ffplay                                                                                       |
+|`WITH_CUDA` | _empty_ | _empty_ or true            | Include nvidia-cuda-toolkit in the final docker image                                                               |
 
 
 ### Build an image
